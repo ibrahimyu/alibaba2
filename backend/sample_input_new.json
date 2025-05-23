@@ -1,0 +1,39 @@
+{
+    "resto_name": "Maximo Cafe",
+    "resto_address": "Jl. Raya Cibubur No. 1",
+    
+    "opening_scene": {
+        "prompt": "A cozy cafe with soft jazz music playing in the background. The ambiance is warm and inviting, with dim lighting and comfortable seating.",
+        "image_url": "https://example.com/opening_scene.jpg"
+    },
+    "closing_scene": {
+        "prompt": "The cafe is closing for the night. The lights are dimmed, and the last customers are leaving with satisfied smiles.",
+        "image_url": "https://example.com/closing_scene.jpg"
+    },
+    "music": {
+        "enabled": true,
+        "genres": "inspiring female uplifting pop airy vocal electronic",
+        "bpm": 120,
+        "lyrics": "Smooth and mellow, the music flows like a gentle river. It sets the perfect mood for relaxation and enjoyment."
+    },
+    "menu": [
+        {
+            "name": "Nasi Goreng",
+            "price": 20000,
+            "description": "Fried rice with chicken and vegetables",
+            "photo_url": "https://example.com/nasi_goreng.jpg"
+        },
+        {
+            "name": "Caffe Latte",
+            "price": 25000,
+            "description": "Espresso with steamed milk",
+            "photo_url": "https://example.com/latte.jpg"
+        },
+        {
+            "name": "Pasta Carbonara",
+            "price": 50000,
+            "description": "Pasta with creamy sauce and bacon",
+            "photo_url": "https://example.com/carbonara.jpg"
+        }
+    ]
+}
