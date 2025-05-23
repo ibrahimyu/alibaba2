@@ -32,6 +32,7 @@ import {
 import { useState } from 'react'
 import { VideoFormData, MenuItem, ProgressData } from '../types'
 import { FaPlay, FaPlus, FaTrash } from 'react-icons/fa'
+import ImageUploadInput from './ImageUploadInput'
 
 interface FormPanelProps {
   formData: VideoFormData
@@ -81,7 +82,7 @@ export default function FormPanel({
       name: `Menu Item ${newData.menu.length + 1}`,
       price: 10000,
       description: 'Description of the menu item',
-      photo_url: 'https://example.com/food.jpg'
+      photo_url: ''
     })
     onChange(newData)
   }
@@ -160,14 +161,12 @@ export default function FormPanel({
                   />
                 </FormControl>
                 
-                <FormControl>
-                  <FormLabel>Opening Scene Image URL</FormLabel>
-                  <Input 
-                    value={formData.opening_scene.image_url}
-                    onChange={(e) => updateFormData('opening_scene.image_url', e.target.value)}
-                    placeholder="Enter image URL"
-                  />
-                </FormControl>
+                <ImageUploadInput
+                  label="Opening Scene Image"
+                  value={formData.opening_scene.image_url}
+                  onChange={(url) => updateFormData('opening_scene.image_url', url)}
+                  placeholder="Enter image URL or upload an image"
+                />
               </VStack>
             </TabPanel>
             
@@ -223,14 +222,12 @@ export default function FormPanel({
                         />
                       </FormControl>
                       
-                      <FormControl>
-                        <FormLabel>Photo URL</FormLabel>
-                        <Input 
-                          value={item.photo_url}
-                          onChange={(e) => updateFormData(`menu[${index}].photo_url`, e.target.value)}
-                          placeholder="Enter photo URL"
-                        />
-                      </FormControl>
+                      <ImageUploadInput
+                        label="Food Photo"
+                        value={item.photo_url}
+                        onChange={(url) => updateFormData(`menu[${index}].photo_url`, url)}
+                        placeholder="Enter food photo URL or upload an image"
+                      />
                     </VStack>
                   </Box>
                 ))}
@@ -259,14 +256,12 @@ export default function FormPanel({
                   />
                 </FormControl>
                 
-                <FormControl>
-                  <FormLabel>Closing Scene Image URL</FormLabel>
-                  <Input 
-                    value={formData.closing_scene.image_url}
-                    onChange={(e) => updateFormData('closing_scene.image_url', e.target.value)}
-                    placeholder="Enter image URL"
-                  />
-                </FormControl>
+                <ImageUploadInput
+                  label="Closing Scene Image"
+                  value={formData.closing_scene.image_url}
+                  onChange={(url) => updateFormData('closing_scene.image_url', url)}
+                  placeholder="Enter image URL or upload an image"
+                />
               </VStack>
             </TabPanel>
             

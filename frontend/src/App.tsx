@@ -1,9 +1,9 @@
 import { Box, Container, Heading, useToast } from '@chakra-ui/react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { VideoFormData } from './types'
 import FormPanel from './components/FormPanel'
 import VideoPreviewPanel from './components/VideoPreviewPanel'
-import axios from 'axios'
+import { generateVideo, getJobProgress } from './api'
 
 // Default form data matches the sample_input_new.json structure
 const defaultFormData: VideoFormData = {
@@ -11,11 +11,11 @@ const defaultFormData: VideoFormData = {
   resto_address: "123 Main Street",
   opening_scene: {
     prompt: "A beautiful restaurant with modern decor and ambient lighting",
-    image_url: "https://example.com/opening_scene.jpg"
+    image_url: ""
   },
   closing_scene: {
     prompt: "Customers leaving the restaurant with satisfied smiles",
-    image_url: "https://example.com/closing_scene.jpg"
+    image_url: ""
   },
   music: {
     enabled: true,
@@ -28,7 +28,7 @@ const defaultFormData: VideoFormData = {
       name: "Signature Dish",
       price: 25000,
       description: "Our chef's special creation",
-      photo_url: "https://example.com/dish.jpg"
+      photo_url: ""
     }
   ]
 }
@@ -51,8 +51,8 @@ function App() {
       setVideoUrl(null)
       
       // Submit the form data to the backend API
-      const response = await axios.post('/api/generate-video', formData)
-      const { jobId } = response.data
+      const response = await generateVideo(formData)
+      const { jobId } = response
       
       if (jobId) {
         setJobId(jobId)
@@ -60,8 +60,7 @@ function App() {
         // Start polling for progress
         const progressInterval = setInterval(async () => {
           try {
-            const progressResponse = await axios.get(`/api/progress/${jobId}`)
-            const jobData = progressResponse.data
+            const jobData = await getJobProgress(jobId)
             
             setProgress({
               stage: jobData.stage,
