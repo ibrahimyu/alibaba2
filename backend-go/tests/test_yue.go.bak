@@ -1,0 +1,36 @@
+/*package tests
+
+import (
+	"fmt"
+	"log"
+	"os"
+)
+
+// Test the YuE music generation integration
+func main() {
+	// Set up test directories
+	testDir := "./test_output"
+	if _, err := os.Stat(testDir); os.IsNotExist(err) {
+		os.MkdirAll(testDir, 0755)
+	}
+
+	// Test music generation
+	genres := "inspiring uplifting electronic bright vocal"
+	lyrics := "[verse]\nWelcome to our restaurant\nWhere flavors come alive\nEvery dish tells a story\nOf passion and delight\n\n[chorus]\nCome taste the magic\nOf our cuisine tonight\nMemories will be made\nIn every delicious bite"
+
+	fmt.Println("Testing YuE music generation...")
+	musicPath, err := GenerateYuEMusic(genres, lyrics, testDir)
+	if err != nil {
+		log.Fatalf("Error generating music: %v", err)
+	}
+
+	fmt.Printf("Music generated successfully at: %s\n", musicPath)
+
+	// Check if the file exists
+	if _, err := os.Stat(musicPath); os.IsNotExist(err) {
+		log.Fatalf("Music file not found: %s", musicPath)
+	}
+
+	fmt.Println("Test completed successfully!")
+}
+*/
