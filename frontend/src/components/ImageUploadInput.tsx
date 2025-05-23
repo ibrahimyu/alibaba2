@@ -10,8 +10,8 @@ import {
   InputRightElement, 
   Image,
   FormHelperText,
-  useToast,
-  Spinner
+  FormErrorMessage,
+  useToast
 } from '@chakra-ui/react';
 import { useRef, useState } from 'react';
 import { FaUpload, FaCheck } from 'react-icons/fa';
@@ -22,13 +22,19 @@ interface ImageUploadInputProps {
   value: string;
   onChange: (url: string) => void;
   placeholder?: string;
+  isRequired?: boolean;
+  isInvalid?: boolean;
+  errorMessage?: string;
 }
 
 export default function ImageUploadInput({ 
   label, 
   value, 
   onChange, 
-  placeholder = 'Enter image URL or upload an image' 
+  placeholder = 'Enter image URL or upload an image',
+  isRequired = false,
+  isInvalid = false,
+  errorMessage = 'This field is required'
 }: ImageUploadInputProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -92,7 +98,7 @@ export default function ImageUploadInput({
   const imageUrl = value || previewUrl;
   
   return (
-    <FormControl>
+    <FormControl isInvalid={isInvalid} isRequired={isRequired}>
       <FormLabel>{label}</FormLabel>
       <InputGroup>
         <Input
@@ -121,6 +127,7 @@ export default function ImageUploadInput({
         accept="image/*"
         style={{ display: 'none' }}
       />
+      {isInvalid && <FormErrorMessage>{errorMessage}</FormErrorMessage>}
       {imageUrl && (
         <Box mt={2}>
           <Image

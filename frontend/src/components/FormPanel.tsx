@@ -27,11 +27,13 @@ import {
   NumberIncrementStepper,
   NumberDecrementStepper,
   Divider,
-  IconButton
+  IconButton,
+  Tooltip
 } from '@chakra-ui/react'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { VideoFormData, MenuItem, ProgressData } from '../types'
 import { FaPlay, FaPlus, FaTrash } from 'react-icons/fa'
+import { BsExclamationCircleFill } from 'react-icons/bs'
 import ImageUploadInput from './ImageUploadInput'
 
 interface FormPanelProps {
@@ -52,6 +54,78 @@ export default function FormPanel({
   const [activeTab, setActiveTab] = useState(0)
   const cardBg = useColorModeValue('white', 'gray.700')
   const textColor = useColorModeValue('gray.600', 'gray.300')
+  const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({})
+  
+  // Validate the form data
+  const isFormValid = useMemo(() => {
+    const errors: Record<string, string[]> = {}
+    
+    // Check restaurant info
+    if (!formData.resto_name || formData.resto_name.trim() === '') {
+      if (!errors.basicInfo) errors.basicInfo = []
+      errors.basicInfo.push('Restaurant name is required')
+    }
+    
+    if (!formData.resto_address || formData.resto_address.trim() === '') {
+      if (!errors.basicInfo) errors.basicInfo = []
+      errors.basicInfo.push('Restaurant address is required')
+    }
+    
+    // Check opening scene
+    if (!formData.opening_scene.prompt || formData.opening_scene.prompt.trim() === '') {
+      if (!errors.openingScene) errors.openingScene = []
+      errors.openingScene.push('Opening scene description is required')
+    }
+    
+    if (!formData.opening_scene.image_url || formData.opening_scene.image_url.trim() === '') {
+      if (!errors.openingScene) errors.openingScene = []
+      errors.openingScene.push('Opening scene image is required')
+    }
+    
+    // Check closing scene
+    if (!formData.closing_scene.prompt || formData.closing_scene.prompt.trim() === '') {
+      if (!errors.closingScene) errors.closingScene = []
+      errors.closingScene.push('Closing scene description is required')
+    }
+    
+    if (!formData.closing_scene.image_url || formData.closing_scene.image_url.trim() === '') {
+      if (!errors.closingScene) errors.closingScene = []
+      errors.closingScene.push('Closing scene image is required')
+    }
+    
+    // Check menu items
+    formData.menu.forEach((item, index) => {
+      const errorKey = `menuItem-${index}`
+      if (!item.name || item.name.trim() === '') {
+        if (!errors[errorKey]) errors[errorKey] = []
+        errors[errorKey].push('Menu item name is required')
+      }
+      
+      if (!item.description || item.description.trim() === '') {
+        if (!errors[errorKey]) errors[errorKey] = []
+        errors[errorKey].push('Menu item description is required')
+      }
+      
+      if (!item.photo_url || item.photo_url.trim() === '') {
+        if (!errors[errorKey]) errors[errorKey] = []
+        errors[errorKey].push('Menu item image is required')
+      }
+    })
+    
+    // If music is enabled, check required music fields
+    if (formData.music.enabled) {
+      if (!formData.music.genres || formData.music.genres.trim() === '') {
+        if (!errors.music) errors.music = []
+        errors.music.push('Music genres are required when music is enabled')
+      }
+    }
+    
+    // Save the errors for display
+    setValidationErrors(errors)
+    
+    // Form is valid if there are no errors
+    return Object.keys(errors).length === 0
+  }, [formData])
 
   // Update form data with new values
   const updateFormData = (path: string, value: any) => {
@@ -93,6 +167,11 @@ export default function FormPanel({
     onChange(newData)
   }
 
+  // Helper function to check if a tab has errors
+  const hasTabErrors = (tabName: string) => {
+    return Object.keys(validationErrors).some(key => key.startsWith(tabName))
+  }
+
   return (
     <Card shadow="md" borderRadius="lg" bg={cardBg} height="100%">
       <CardHeader pb={0}>
@@ -117,33 +196,64 @@ export default function FormPanel({
       <CardBody>
         <Tabs isLazy variant="enclosed" colorScheme="brand" index={activeTab} onChange={setActiveTab}>
           <TabList mb={4}>
-            <Tab>Basic Info</Tab>
-            <Tab>Opening Scene</Tab>
-            <Tab>Menu Items</Tab>
-            <Tab>Closing Scene</Tab>
-            <Tab>Music</Tab>
+            <Tab position="relative">
+              Basic Info
+              {hasTabErrors('basicInfo') && (
+                <Icon as={BsExclamationCircleFill} color="red.500" ml={2} />
+              )}
+            </Tab>
+            <Tab position="relative">
+              Opening Scene
+              {hasTabErrors('openingScene') && (
+                <Icon as={BsExclamationCircleFill} color="red.500" ml={2} />
+              )}
+            </Tab>
+            <Tab position="relative">
+              Menu Items
+              {Object.keys(validationErrors).some(key => key.startsWith('menuItem')) && (
+                <Icon as={BsExclamationCircleFill} color="red.500" ml={2} />
+              )}
+            </Tab>
+            <Tab position="relative">
+              Closing Scene
+              {hasTabErrors('closingScene') && (
+                <Icon as={BsExclamationCircleFill} color="red.500" ml={2} />
+              )}
+            </Tab>
+            <Tab position="relative">
+              Music
+              {hasTabErrors('music') && (
+                <Icon as={BsExclamationCircleFill} color="red.500" ml={2} />
+              )}
+            </Tab>
           </TabList>
           
           <TabPanels>
             {/* Basic Info Tab */}
             <TabPanel>
               <VStack spacing={4} align="stretch">
-                <FormControl>
+                <FormControl isInvalid={!!validationErrors.basicInfo?.includes('Restaurant name is required')}>
                   <FormLabel>Restaurant Name</FormLabel>
                   <Input 
                     value={formData.resto_name}
                     onChange={(e) => updateFormData('resto_name', e.target.value)}
                     placeholder="Enter restaurant name"
                   />
+                  {validationErrors.basicInfo?.includes('Restaurant name is required') && (
+                    <Text color="red.500" fontSize="sm" mt={1}>Restaurant name is required</Text>
+                  )}
                 </FormControl>
                 
-                <FormControl>
+                <FormControl isInvalid={!!validationErrors.basicInfo?.includes('Restaurant address is required')}>
                   <FormLabel>Restaurant Address</FormLabel>
                   <Input 
                     value={formData.resto_address}
                     onChange={(e) => updateFormData('resto_address', e.target.value)}
                     placeholder="Enter restaurant address"
                   />
+                  {validationErrors.basicInfo?.includes('Restaurant address is required') && (
+                    <Text color="red.500" fontSize="sm" mt={1}>Restaurant address is required</Text>
+                  )}
                 </FormControl>
               </VStack>
             </TabPanel>
@@ -151,7 +261,7 @@ export default function FormPanel({
             {/* Opening Scene Tab */}
             <TabPanel>
               <VStack spacing={4} align="stretch">
-                <FormControl>
+                <FormControl isInvalid={!!validationErrors.openingScene?.includes('Opening scene description is required')}>
                   <FormLabel>Opening Scene Description</FormLabel>
                   <Textarea 
                     value={formData.opening_scene.prompt}
@@ -159,6 +269,9 @@ export default function FormPanel({
                     placeholder="Describe the opening scene of your video"
                     minH="100px"
                   />
+                  {validationErrors.openingScene?.includes('Opening scene description is required') && (
+                    <Text color="red.500" fontSize="sm" mt={1}>Opening scene description is required</Text>
+                  )}
                 </FormControl>
                 
                 <ImageUploadInput
@@ -166,6 +279,9 @@ export default function FormPanel({
                   value={formData.opening_scene.image_url}
                   onChange={(url) => updateFormData('opening_scene.image_url', url)}
                   placeholder="Enter image URL or upload an image"
+                  isRequired={true}
+                  isInvalid={!!validationErrors.openingScene?.includes('Opening scene image is required')}
+                  errorMessage="Opening scene image is required"
                 />
               </VStack>
             </TabPanel>
@@ -173,64 +289,76 @@ export default function FormPanel({
             {/* Menu Items Tab */}
             <TabPanel>
               <VStack spacing={6} align="stretch">
-                {formData.menu.map((item: MenuItem, index: number) => (
-                  <Box key={index} p={4} borderWidth={1} borderRadius="md">
-                    <Flex justify="space-between" mb={2}>
-                      <Heading size="sm">Menu Item {index + 1}</Heading>
-                      <IconButton
-                        aria-label="Remove menu item"
-                        icon={<FaTrash />}
-                        size="sm"
-                        colorScheme="red"
-                        variant="ghost"
-                        onClick={() => removeMenuItem(index)}
-                      />
-                    </Flex>
-                    <Divider mb={4} />
-                    
-                    <VStack spacing={3} align="stretch">
-                      <FormControl>
-                        <FormLabel>Name</FormLabel>
-                        <Input 
-                          value={item.name}
-                          onChange={(e) => updateFormData(`menu[${index}].name`, e.target.value)}
-                          placeholder="Enter item name"
+                {formData.menu.map((item: MenuItem, index: number) => {
+                  const errorKey = `menuItem-${index}`;
+                  return (
+                    <Box key={index} p={4} borderWidth={1} borderRadius="md" borderColor={validationErrors[errorKey] ? "red.300" : "inherit"}>
+                      <Flex justify="space-between" mb={2}>
+                        <Heading size="sm">Menu Item {index + 1}</Heading>
+                        <IconButton
+                          aria-label="Remove menu item"
+                          icon={<FaTrash />}
+                          size="sm"
+                          colorScheme="red"
+                          variant="ghost"
+                          onClick={() => removeMenuItem(index)}
                         />
-                      </FormControl>
+                      </Flex>
+                      <Divider mb={4} />
                       
-                      <FormControl>
-                        <FormLabel>Price</FormLabel>
-                        <NumberInput
-                          value={item.price}
-                          onChange={(valueStr) => updateFormData(`menu[${index}].price`, parseInt(valueStr))}
-                          min={0}
-                        >
-                          <NumberInputField />
-                          <NumberInputStepper>
-                            <NumberIncrementStepper />
-                            <NumberDecrementStepper />
-                          </NumberInputStepper>
-                        </NumberInput>
-                      </FormControl>
-                      
-                      <FormControl>
-                        <FormLabel>Description</FormLabel>
-                        <Textarea 
-                          value={item.description}
-                          onChange={(e) => updateFormData(`menu[${index}].description`, e.target.value)}
-                          placeholder="Describe this menu item"
+                      <VStack spacing={3} align="stretch">
+                        <FormControl isInvalid={!!validationErrors[errorKey]?.includes('Menu item name is required')}>
+                          <FormLabel>Name</FormLabel>
+                          <Input 
+                            value={item.name}
+                            onChange={(e) => updateFormData(`menu[${index}].name`, e.target.value)}
+                            placeholder="Enter item name"
+                          />
+                          {validationErrors[errorKey]?.includes('Menu item name is required') && (
+                            <Text color="red.500" fontSize="sm" mt={1}>Menu item name is required</Text>
+                          )}
+                        </FormControl>
+                        
+                        <FormControl>
+                          <FormLabel>Price</FormLabel>
+                          <NumberInput
+                            value={item.price}
+                            onChange={(valueStr) => updateFormData(`menu[${index}].price`, parseInt(valueStr))}
+                            min={0}
+                          >
+                            <NumberInputField />
+                            <NumberInputStepper>
+                              <NumberIncrementStepper />
+                              <NumberDecrementStepper />
+                            </NumberInputStepper>
+                          </NumberInput>
+                        </FormControl>
+                        
+                        <FormControl isInvalid={!!validationErrors[errorKey]?.includes('Menu item description is required')}>
+                          <FormLabel>Description</FormLabel>
+                          <Textarea 
+                            value={item.description}
+                            onChange={(e) => updateFormData(`menu[${index}].description`, e.target.value)}
+                            placeholder="Describe this menu item"
+                          />
+                          {validationErrors[errorKey]?.includes('Menu item description is required') && (
+                            <Text color="red.500" fontSize="sm" mt={1}>Menu item description is required</Text>
+                          )}
+                        </FormControl>
+                        
+                        <ImageUploadInput
+                          label="Food Photo"
+                          value={item.photo_url}
+                          onChange={(url) => updateFormData(`menu[${index}].photo_url`, url)}
+                          placeholder="Enter food photo URL or upload an image"
+                          isRequired={true}
+                          isInvalid={!!validationErrors[errorKey]?.includes('Menu item image is required')}
+                          errorMessage="Menu item image is required"
                         />
-                      </FormControl>
-                      
-                      <ImageUploadInput
-                        label="Food Photo"
-                        value={item.photo_url}
-                        onChange={(url) => updateFormData(`menu[${index}].photo_url`, url)}
-                        placeholder="Enter food photo URL or upload an image"
-                      />
-                    </VStack>
-                  </Box>
-                ))}
+                      </VStack>
+                    </Box>
+                  );
+                })}
                 
                 <Button 
                   leftIcon={<FaPlus />} 
@@ -246,7 +374,7 @@ export default function FormPanel({
             {/* Closing Scene Tab */}
             <TabPanel>
               <VStack spacing={4} align="stretch">
-                <FormControl>
+                <FormControl isInvalid={!!validationErrors.closingScene?.includes('Closing scene description is required')}>
                   <FormLabel>Closing Scene Description</FormLabel>
                   <Textarea 
                     value={formData.closing_scene.prompt}
@@ -254,6 +382,9 @@ export default function FormPanel({
                     placeholder="Describe the closing scene of your video"
                     minH="100px"
                   />
+                  {validationErrors.closingScene?.includes('Closing scene description is required') && (
+                    <Text color="red.500" fontSize="sm" mt={1}>Closing scene description is required</Text>
+                  )}
                 </FormControl>
                 
                 <ImageUploadInput
@@ -261,6 +392,9 @@ export default function FormPanel({
                   value={formData.closing_scene.image_url}
                   onChange={(url) => updateFormData('closing_scene.image_url', url)}
                   placeholder="Enter image URL or upload an image"
+                  isRequired={true}
+                  isInvalid={!!validationErrors.closingScene?.includes('Closing scene image is required')}
+                  errorMessage="Closing scene image is required"
                 />
               </VStack>
             </TabPanel>
@@ -279,13 +413,16 @@ export default function FormPanel({
                 
                 {formData.music.enabled && (
                   <>
-                    <FormControl>
+                    <FormControl isInvalid={!!validationErrors.music?.includes('Music genres are required when music is enabled')}>
                       <FormLabel>Music Genres</FormLabel>
                       <Input 
                         value={formData.music.genres}
                         onChange={(e) => updateFormData('music.genres', e.target.value)}
                         placeholder="e.g., ambient lounge relaxing instrumental"
                       />
+                      {validationErrors.music?.includes('Music genres are required when music is enabled') && (
+                        <Text color="red.500" fontSize="sm" mt={1}>Music genres are required</Text>
+                      )}
                     </FormControl>
                     
                     <FormControl>
@@ -320,17 +457,24 @@ export default function FormPanel({
         </Tabs>
         
         <Flex justifyContent="flex-end" mt={6}>
-          <Button
-            leftIcon={<Icon as={FaPlay} />}
-            colorScheme="brand"
-            size="lg"
-            onClick={onGenerate}
-            isLoading={isGenerating}
-            loadingText={isGenerating ? progress.message : undefined}
-            isDisabled={isGenerating}
+          <Tooltip 
+            isDisabled={isFormValid}
+            hasArrow
+            label="Please fill in all required fields before generating the video"
+            placement="top"
           >
-            Generate Video
-          </Button>
+            <Button
+              leftIcon={<Icon as={FaPlay} />}
+              colorScheme="brand"
+              size="lg"
+              onClick={onGenerate}
+              isLoading={isGenerating}
+              loadingText={isGenerating ? progress.message : undefined}
+              isDisabled={isGenerating || !isFormValid}
+            >
+              Generate Video
+            </Button>
+          </Tooltip>
         </Flex>
       </CardBody>
     </Card>
