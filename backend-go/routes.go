@@ -299,12 +299,12 @@ func handleVideoGeneration(c *fiber.Ctx) error {
 	for i, menuItem := range inputData.Menu {
 		// Only process items with a photo URL that don't already have nutrition info
 		if menuItem.PhotoURL != "" && menuItem.Nutrition == nil {
-			analysis, err := AnalyzeFoodImage(menuItem.PhotoURL)
-			if err != nil {
+			analysis := AnalyzeFoodImage2(menuItem.PhotoURL)
+			/*if err != nil {
 				log.Printf("Warning: Could not analyze food image for menu item %s: %v", menuItem.Name, err)
 				// Continue with generation even if analysis fails
 				continue
-			}
+			}*/
 			// Add nutrition info to the menu item
 			inputData.Menu[i].Nutrition = analysis
 		}
@@ -408,15 +408,15 @@ func handleFoodAnalysis(c *fiber.Ctx) error {
 	}
 
 	// Analyze the food image
-	analysis, err := AnalyzeFoodImage(request.ImageURL)
-	if err != nil {
+	analysis := AnalyzeFoodImage2(request.ImageURL)
+	/*if err != nil {
 		log.Printf("Error analyzing food image: %v", err)
 		return c.Status(500).JSON(fiber.Map{
 			"success": false,
 			"message": "Failed to analyze food image",
 			"error":   err.Error(),
 		})
-	}
+	}*/
 
 	// Return the analysis results
 	return c.JSON(fiber.Map{

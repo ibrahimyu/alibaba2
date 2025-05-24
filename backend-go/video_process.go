@@ -467,20 +467,35 @@ func combineVideosWithMusic(videoSegmentPaths []string, musicPath string, output
 		return "", fmt.Errorf("no video segments to combine")
 	}
 
-	// Create file list for FFmpeg
+	// Create file list for FFmpeg using absolute paths
 	fileListPath := filepath.Join(outputDir, "filelist.txt")
 	fileListContent := ""
 	for _, videoPath := range videoSegmentPaths {
-		fileListContent += fmt.Sprintf("file '%s'\n", videoPath)
+		// Convert to absolute path to avoid path resolution issues
+		absVideoPath, err := filepath.Abs(videoPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to get absolute path for %s: %w", videoPath, err)
+		}
+		fileListContent += fmt.Sprintf("file '%s'\n", absVideoPath)
 	}
 
 	if err := os.WriteFile(fileListPath, []byte(fileListContent), 0644); err != nil {
 		return "", fmt.Errorf("failed to write file list: %w", err)
 	}
 
-	// Combine videos
+	// Combine videos using absolute paths
 	combinedVideoPath := filepath.Join(outputDir, "combined_video.mp4")
-	combineCmd := exec.Command("ffmpeg", "-f", "concat", "-safe", "0", "-i", fileListPath, "-c", "copy", combinedVideoPath)
+	// Get absolute paths
+	absFileListPath, err := filepath.Abs(fileListPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for file list: %w", err)
+	}
+	absCombinedVideoPath, err := filepath.Abs(combinedVideoPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for combined video: %w", err)
+	}
+
+	combineCmd := exec.Command("ffmpeg", "-f", "concat", "-safe", "0", "-i", absFileListPath, "-c", "copy", absCombinedVideoPath)
 
 	output, err := combineCmd.CombinedOutput()
 	if err != nil {
@@ -488,30 +503,41 @@ func combineVideosWithMusic(videoSegmentPaths []string, musicPath string, output
 	}
 
 	finalVideoPath := filepath.Join(outputDir, "final_video.mp4")
+	absFinalVideoPath, err := filepath.Abs(finalVideoPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path for final video: %w", err)
+	}
 
 	// Add background music if provided
 	if musicPath != "" && musicPath != "not-implemented" {
-		musicCmd := exec.Command("ffmpeg", "-i", combinedVideoPath, "-i", musicPath,
+		// Get absolute path for music file
+		absMusicPath, err := filepath.Abs(musicPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to get absolute path for music: %w", err)
+		}
+
+		// We already have absolute path for combinedVideoPath from earlier
+		musicCmd := exec.Command("ffmpeg", "-i", absCombinedVideoPath, "-i", absMusicPath,
 			"-map", "0:v", "-map", "1:a", "-shortest", "-c:v", "copy",
-			"-c:a", "aac", "-b:a", "192k", finalVideoPath)
+			"-c:a", "aac", "-b:a", "192k", absFinalVideoPath)
 
 		output, err := musicCmd.CombinedOutput()
 		if err != nil {
 			// If adding music fails, just use the combined video
 			log.Printf("Warning: Failed to add background music: %v, output: %s", err, string(output))
 			// Copy the combined video as the final video
-			if err := copyFile(combinedVideoPath, finalVideoPath); err != nil {
+			if err := copyFile(absCombinedVideoPath, absFinalVideoPath); err != nil {
 				return "", fmt.Errorf("failed to copy combined video: %w", err)
 			}
 		}
 	} else {
 		// If no music, just rename the combined video
-		if err := copyFile(combinedVideoPath, finalVideoPath); err != nil {
+		if err := copyFile(absCombinedVideoPath, absFinalVideoPath); err != nil {
 			return "", fmt.Errorf("failed to copy combined video: %w", err)
 		}
 	}
 
-	return finalVideoPath, nil
+	return absFinalVideoPath, nil
 }
 
 // copyFile copies a file from src to dst
