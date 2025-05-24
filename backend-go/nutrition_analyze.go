@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -88,6 +89,104 @@ func AnalyzeFoodImage2(ImageURL string) (*FoodAnalysisResult, error) {
 		return nil, fmt.Errorf("python script error: %s", rawOutput)
 	}
 
-	// Process the result using the existing processFoodAnalysis function
+	// Check if the output is in JSON format
+	if strings.TrimSpace(rawOutput)[0] == '{' {
+		// Try to parse as JSON first
+		var foodData struct {
+			Menu               string   `json:"menu"`
+			Description        string   `json:"description"`
+			Features           []string `json:"features"`
+			NutritionalContent struct {
+				Calories       int `json:"calories"`
+				Macronutrients struct {
+					Protein struct {
+						Amount  interface{} `json:"amount"`
+						Unit    string      `json:"unit"`
+						Sources []string    `json:"sources"`
+					} `json:"protein"`
+					Carbohydrates struct {
+						Amount  interface{} `json:"amount"`
+						Unit    string      `json:"unit"`
+						Sources []string    `json:"sources"`
+					} `json:"carbohydrates"`
+					Fat struct {
+						Amount  interface{} `json:"amount"`
+						Unit    string      `json:"unit"`
+						Sources []string    `json:"sources"`
+					} `json:"fat"`
+				} `json:"macronutrients"`
+			} `json:"nutritional_content"`
+		}
+
+		if err := json.Unmarshal([]byte(rawOutput), &foodData); err == nil {
+			// Successfully parsed as JSON, convert to FoodAnalysisResult
+			result := &FoodAnalysisResult{
+				Foods:       make([]FoodItem, 0),
+				RawResponse: rawOutput,
+			}
+
+			// Add the main item
+			mainItem := FoodItem{
+				Name:     foodData.Menu,
+				Calories: fmt.Sprintf("%d kcal", foodData.NutritionalContent.Calories),
+			}
+
+			// Handle protein
+			var proteinAmount string
+			switch v := foodData.NutritionalContent.Macronutrients.Protein.Amount.(type) {
+			case float64:
+				proteinAmount = fmt.Sprintf("%.1f %s", v, foodData.NutritionalContent.Macronutrients.Protein.Unit)
+			case int:
+				proteinAmount = fmt.Sprintf("%d %s", v, foodData.NutritionalContent.Macronutrients.Protein.Unit)
+			case string:
+				proteinAmount = v
+			default:
+				proteinAmount = fmt.Sprintf("%v %s", v, foodData.NutritionalContent.Macronutrients.Protein.Unit)
+			}
+			mainItem.Protein = proteinAmount
+
+			// Handle carbs
+			var carbsAmount string
+			switch v := foodData.NutritionalContent.Macronutrients.Carbohydrates.Amount.(type) {
+			case float64:
+				carbsAmount = fmt.Sprintf("%.1f %s", v, foodData.NutritionalContent.Macronutrients.Carbohydrates.Unit)
+			case int:
+				carbsAmount = fmt.Sprintf("%d %s", v, foodData.NutritionalContent.Macronutrients.Carbohydrates.Unit)
+			case string:
+				carbsAmount = v
+			default:
+				carbsAmount = fmt.Sprintf("%v %s", v, foodData.NutritionalContent.Macronutrients.Carbohydrates.Unit)
+			}
+			mainItem.Carbs = carbsAmount
+
+			// Handle fat
+			var fatAmount string
+			switch v := foodData.NutritionalContent.Macronutrients.Fat.Amount.(type) {
+			case float64:
+				fatAmount = fmt.Sprintf("%.1f %s", v, foodData.NutritionalContent.Macronutrients.Fat.Unit)
+			case int:
+				fatAmount = fmt.Sprintf("%d %s", v, foodData.NutritionalContent.Macronutrients.Fat.Unit)
+			case string:
+				fatAmount = v
+			default:
+				fatAmount = fmt.Sprintf("%v %s", v, foodData.NutritionalContent.Macronutrients.Fat.Unit)
+			}
+			mainItem.Fat = fatAmount
+
+			result.Foods = append(result.Foods, mainItem)
+
+			// Set total nutrition to the same values since we have one item
+			result.TotalNutrition = NutritionSummary{
+				Calories: mainItem.Calories,
+				Protein:  mainItem.Protein,
+				Carbs:    mainItem.Carbs,
+				Fat:      mainItem.Fat,
+			}
+
+			return result, nil
+		}
+	}
+
+	// Fallback to the existing processFoodAnalysis function if JSON parsing fails
 	return processFoodAnalysis(rawOutput), nil
 }

@@ -20,7 +20,67 @@ def get_response(image_url):
               "content": [
                 {
                   "type": "text",
-                  "text": "What is the nutritional content with accurate numbers in this picture and what foods are in it and output ingredients and nutrition only, no explanations"
+                  "text": """Analyze this food image and output the result in ONLY valid JSON format exactly as follows, with no extra explanations or text outside the JSON:
+
+{
+  "menu": "Menu item name",
+  "description": "Brief description of the dish",
+  "location": "Optional location/restaurant info if visible",
+  "features": [
+    "Feature 1 (e.g. MSG-Free)",
+    "Feature 2 (e.g. calories info)"
+  ],
+  "foods_included": [
+    {
+      "name": "Category name (e.g. Vegetables)",
+      "items": [
+        "Food item 1",
+        "Food item 2",
+        "Food item 3"
+      ]
+    },
+    {
+      "name": "Category name (e.g. Protein)",
+      "items": [
+        "Food item 1",
+        "Food item 2"
+      ]
+    }
+  ],
+  "nutritional_content": {
+    "calories": 400,
+    "macronutrients": {
+      "protein": {
+        "amount": 25,
+        "unit": "grams",
+        "sources": ["source1", "source2"]
+      },
+      "carbohydrates": {
+        "amount": 35,
+        "unit": "grams",
+        "sources": ["source1", "source2"]
+      },
+      "fat": {
+        "amount": 15,
+        "unit": "grams",
+        "sources": ["source1", "source2"]
+      }
+    },
+    "fiber": {
+      "amount": 5,
+      "unit": "grams",
+      "sources": ["vegetables"]
+    },
+    "vitamins_minerals": {
+      "vitamin_c": "Sources description",
+      "vitamin_a": "Sources description"
+    },
+    "notes": [
+      "Informational note 1",
+      "Informational note 2"
+    ]
+  }
+}"""
                 },
                 {
                   "type": "image_url",
@@ -38,7 +98,27 @@ def get_response(image_url):
     
     # Extract and return just the content as plain text
     if 'choices' in response_json and len(response_json['choices']) > 0:
-        return response_json['choices'][0]['message']['content']
+        content = response_json['choices'][0]['message']['content']
+        
+        # Try to ensure we're returning valid JSON
+        try:
+            # Try to parse the response as JSON to check validity
+            food_json = json.loads(content)
+            # Then re-format it with proper indentation
+            return json.dumps(food_json, indent=2)
+        except json.JSONDecodeError:
+            # If the API didn't return proper JSON, try to extract any JSON-like content
+            import re
+            json_match = re.search(r'```json\s*(.*?)\s*```', content, re.DOTALL)
+            if json_match:
+                try:
+                    food_json = json.loads(json_match.group(1))
+                    return json.dumps(food_json, indent=2)
+                except:
+                    pass
+            
+            # If all parsing attempts fail, return the original content
+            return content
     else:
         # If no choices found, return the whole response as a string
         # but with a clear error marker that processFoodAnalysis can handle

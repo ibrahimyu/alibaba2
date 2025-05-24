@@ -27,27 +27,47 @@
       ]
     }
   ],
+  "ingredients": [
+    "Carrots",
+    "Corn kernels",
+    "Green beans",
+    "Red cabbage (shredded)",
+    "Purple onions (thinly sliced)",
+    "Cherry tomatoes",
+    "Bell peppers (orange)",
+    "Grilled/roasted chicken (small chunks)",
+    "Hard-boiled egg (halved)",
+    "Olive oil dressing (optional)"
+  ],
+  "allergens": [
+    "Eggs",
+    "Chicken",
+    "Nuts",
+    "Soybeans",
+    "Wheat",
+    "Seafood"
+  ],
   "nutritional_content": {
     "calories": 400,
     "macronutrients": {
       "protein": {
-        "amount": 25-30,
+        "amount": "25-30",
         "unit": "grams",
         "sources": ["chicken", "egg"]
       },
       "carbohydrates": {
-        "amount": 35-45,
+        "amount": "35-45",
         "unit": "grams",
         "sources": ["corn", "carrots", "cabbage", "onions", "tomatoes", "bell peppers"]
       },
       "fat": {
-        "amount": 15-20,
+        "amount": "15-20",
         "unit": "grams",
         "sources": ["egg yolk", "hidden fats (dressing/cooking oils)"]
       }
     },
     "fiber": {
-      "amount": 5-8,
+      "amount": "5-8",
       "unit": "grams",
       "sources": ["vegetables"]
     },
