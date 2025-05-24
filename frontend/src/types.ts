@@ -30,4 +30,18 @@ export interface ProgressData {
   stage: string;
   percent: number;
   message: string;
+  status?: 'processing' | 'completed' | 'failed';
+  error?: string;
+}
+
+export interface JobData {
+  job_id: string;
+  status: 'processing' | 'completed' | 'failed';
+  stage: string;
+  percent: number;
+  message: string;
+  video_url?: string;
+  error?: string;
+  start_time: string;
+  update_time: string;
 }

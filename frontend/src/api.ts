@@ -1,5 +1,6 @@
 // api.ts
 import axios from 'axios';
+import { VideoFormData } from './types';
 
 /**
  * Upload an image file to the backend
@@ -32,13 +33,28 @@ export const uploadImage = async (file: File): Promise<string> => {
 /**
  * Generate a video with the provided form data
  */
-export const generateVideo = async (formData: any) => {
+export const generateVideo = async (formData: VideoFormData) => {
   try {
     const response = await axios.post('/api/generate-video', formData);
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error) && error.response) {
       throw new Error(`Video generation failed: ${error.response.data.message || error.message}`);
+    }
+    throw error;
+  }
+};
+
+/**
+ * Resume a failed video generation job
+ */
+export const resumeVideoGeneration = async (jobId: string, formData?: VideoFormData) => {
+  try {
+    const response = await axios.post(`/api/resume-video/${jobId}`, formData || {});
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response) {
+      throw new Error(`Failed to resume generation: ${error.response.data.message || error.message}`);
     }
     throw error;
   }
@@ -54,6 +70,21 @@ export const getJobProgress = async (jobId: string) => {
   } catch (error) {
     if (axios.isAxiosError(error) && error.response) {
       throw new Error(`Failed to fetch progress: ${error.response.data.message || error.message}`);
+    }
+    throw error;
+  }
+};
+
+/**
+ * Fetch all jobs
+ */
+export const getAllJobs = async () => {
+  try {
+    const response = await axios.get('/api/jobs');
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response) {
+      throw new Error(`Failed to fetch jobs: ${error.response.data.message || error.message}`);
     }
     throw error;
   }
