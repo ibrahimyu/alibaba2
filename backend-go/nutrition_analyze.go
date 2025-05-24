@@ -20,7 +20,7 @@ func AnalyzeFoodImage2(ImageURL string) (*FoodAnalysisResult, error) {
 	possibleLocations := []string{
 		filepath.Join(filepath.Dir(currentDir), "analysis.py"), // Parent directory
 		filepath.Join(currentDir, "analysis.py"),               // Current directory
-		"/Users/ibrahim/Documents/alibaba2/analysis.py",        // Root of project directory
+		"/home/ibrahim/alibaba2/analysis.py",                   // Root of project directory
 	}
 
 	// Find the first location that exists
