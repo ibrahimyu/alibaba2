@@ -3,17 +3,20 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 
 	dashscopego "github.com/eswulei/dashscope-go"
 	"github.com/eswulei/dashscope-go/qwen"
 )
 
-func AnalyzeFoodImage2(ImageURL string) *FoodAnalysisResult {
+func AnalyzeFoodImage2(ImageURL string) (*FoodAnalysisResult, error) {
 	model := qwen.QwenVLPlus
-	token := "sk-6326ac6e33024d8fa3abeeedef503abd"
+	token := os.Getenv("DASHSCOPE_API_KEY")
 
 	if token == "" {
 		panic("token is empty")
+	} else {
+		fmt.Println("Using token:", token)
 	}
 
 	cli := dashscopego.NewTongyiClient(model, token)
@@ -52,11 +55,11 @@ func AnalyzeFoodImage2(ImageURL string) *FoodAnalysisResult {
 	ctx := context.TODO()
 	resp, err := cli.CreateVLCompletion(ctx, req)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	fmt.Println("\nnon-stream result: ")
 	fmt.Println(resp.Output.Choices[0].Message.Content.ToString())
 
-	return processFoodAnalysis(resp.Output.Choices[0].Message.Content.ToString())
+	return processFoodAnalysis(resp.Output.Choices[0].Message.Content.ToString()), nil
 }
