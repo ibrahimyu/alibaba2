@@ -10,6 +10,7 @@ This application generates promotional videos for restaurants using AI. It inclu
 - Configure background music settings
 - Real-time progress tracking
 - Video playback in the browser
+- Automatic nutritional content analysis for food menu items
 
 ## Prerequisites
 
@@ -24,6 +25,7 @@ Create a `.env` file in the `backend` directory with the following variables:
 ```
 OPENAI_API_KEY=your_openai_api_key
 ALIBABA_API_KEY=your_alibaba_api_key
+DASHSCOPE_API_KEY=your_dashscope_api_key
 ```
 
 ## Installation
@@ -78,6 +80,32 @@ npm run frontend
 5. Click "Generate Video" to start the process
 6. Monitor the progress in real-time
 7. Once complete, the video will be displayed for playback
+
+## Nutrition Analysis Feature
+
+The application now supports automatic nutritional content analysis for food menu items using AI. This feature helps restaurants provide nutritional information to their customers.
+
+### How it works:
+
+1. When a food image is added to a menu item, you can click the "Analyze Nutrition" button to get nutritional information
+2. The system uses AI to analyze the food image and extract nutritional content
+3. The nutritional information includes:
+   - Calorie count
+   - Protein content
+   - Carbohydrates
+   - Fat
+   - Fiber (when available)
+   - Sodium (when available)
+
+### API Configuration:
+
+To use the nutrition analysis feature, set the following environment variable:
+
+```
+DASHSCOPE_API_KEY=your_dashscope_api_key
+```
+
+This connects to Alibaba Cloud's DashScope API for image analysis.
 
 ## License
 

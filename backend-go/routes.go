@@ -42,10 +42,11 @@ type Music struct {
 
 // MenuItem represents a menu item
 type MenuItem struct {
-	Name        string `json:"name"`
-	Price       int    `json:"price"`
-	Description string `json:"description"`
-	PhotoURL    string `json:"photo_url"`
+	Name        string              `json:"name"`
+	Price       int                 `json:"price"`
+	Description string              `json:"description"`
+	PhotoURL    string              `json:"photo_url"`
+	Nutrition   *FoodAnalysisResult `json:"nutrition,omitempty"`
 }
 
 // JobProgress stores the progress of a video generation job
@@ -72,6 +73,11 @@ func setupAPIRoutes(router fiber.Router, uploadsDir string) {
 	// Image upload endpoint
 	router.Post("/upload-image", func(c *fiber.Ctx) error {
 		return handleImageUpload(c, uploadsDir)
+	})
+
+	// Food nutrition analysis endpoint
+	router.Post("/analyze-food", func(c *fiber.Ctx) error {
+		return handleFoodAnalysis(c)
 	})
 
 	// Video generation endpoint
@@ -289,6 +295,21 @@ func handleVideoGeneration(c *fiber.Ctx) error {
 		})
 	}
 
+	// Process menu items to add nutrition information
+	for i, menuItem := range inputData.Menu {
+		// Only process items with a photo URL that don't already have nutrition info
+		if menuItem.PhotoURL != "" && menuItem.Nutrition == nil {
+			analysis, err := AnalyzeFoodImage(menuItem.PhotoURL)
+			if err != nil {
+				log.Printf("Warning: Could not analyze food image for menu item %s: %v", menuItem.Name, err)
+				// Continue with generation even if analysis fails
+				continue
+			}
+			// Add nutrition info to the menu item
+			inputData.Menu[i].Nutrition = analysis
+		}
+	}
+
 	// Generate a unique job ID
 	jobID := uuid.New().String()
 
@@ -362,6 +383,46 @@ func handleVideoGeneration(c *fiber.Ctx) error {
 	}()
 
 	return nil
+}
+
+// handleFoodAnalysis analyzes a food image and returns nutritional information
+func handleFoodAnalysis(c *fiber.Ctx) error {
+	type AnalysisRequest struct {
+		ImageURL string `json:"image_url"`
+	}
+
+	var request AnalysisRequest
+	if err := c.BodyParser(&request); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"success": false,
+			"message": "Invalid request data",
+			"error":   err.Error(),
+		})
+	}
+
+	if request.ImageURL == "" {
+		return c.Status(400).JSON(fiber.Map{
+			"success": false,
+			"message": "Image URL is required",
+		})
+	}
+
+	// Analyze the food image
+	analysis, err := AnalyzeFoodImage(request.ImageURL)
+	if err != nil {
+		log.Printf("Error analyzing food image: %v", err)
+		return c.Status(500).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to analyze food image",
+			"error":   err.Error(),
+		})
+	}
+
+	// Return the analysis results
+	return c.JSON(fiber.Map{
+		"success":  true,
+		"analysis": analysis,
+	})
 }
 
 // Helper functions for progress tracking

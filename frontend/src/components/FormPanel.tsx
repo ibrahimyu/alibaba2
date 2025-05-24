@@ -31,10 +31,11 @@ import {
   Tooltip
 } from '@chakra-ui/react'
 import { useState, useMemo } from 'react'
-import { VideoFormData, MenuItem, ProgressData } from '../types'
+import { VideoFormData, MenuItem, ProgressData, FoodAnalysisResult } from '../types'
 import { FaPlay, FaPlus, FaTrash } from 'react-icons/fa'
 import { BsExclamationCircleFill } from 'react-icons/bs'
 import ImageUploadInput from './ImageUploadInput'
+import NutritionAnalysisButton from './NutritionAnalysisButton'
 
 interface FormPanelProps {
   formData: VideoFormData
@@ -170,6 +171,56 @@ export default function FormPanel({
   // Helper function to check if a tab has errors
   const hasTabErrors = (tabName: string) => {
     return Object.keys(validationErrors).some(key => key.startsWith(tabName))
+  }
+
+  // NutritionDisplay component to show food nutrition information
+  function NutritionDisplay({ nutrition }: { nutrition?: FoodAnalysisResult }) {
+    if (!nutrition || !nutrition.total_nutrition) return null;
+    
+    const total = nutrition.total_nutrition;
+    
+    return (
+      <Box mt={3} p={3} borderWidth={1} borderRadius="md" bg="gray.50" _dark={{ bg: "gray.700" }}>
+        <Heading size="xs" mb={2}>Nutritional Information</Heading>
+        <Flex flexWrap="wrap">
+          <Box flex="1" minW="120px" p={1}>
+            <Text fontWeight="bold" fontSize="sm">Calories:</Text>
+            <Text fontSize="sm">{total.calories}</Text>
+          </Box>
+          <Box flex="1" minW="120px" p={1}>
+            <Text fontWeight="bold" fontSize="sm">Protein:</Text>
+            <Text fontSize="sm">{total.protein}</Text>
+          </Box>
+          <Box flex="1" minW="120px" p={1}>
+            <Text fontWeight="bold" fontSize="sm">Carbs:</Text>
+            <Text fontSize="sm">{total.carbs}</Text>
+          </Box>
+          <Box flex="1" minW="120px" p={1}>
+            <Text fontWeight="bold" fontSize="sm">Fat:</Text>
+            <Text fontSize="sm">{total.fat}</Text>
+          </Box>
+          {total.fiber && (
+            <Box flex="1" minW="120px" p={1}>
+              <Text fontWeight="bold" fontSize="sm">Fiber:</Text>
+              <Text fontSize="sm">{total.fiber}</Text>
+            </Box>
+          )}
+          {total.sodium && (
+            <Box flex="1" minW="120px" p={1}>
+              <Text fontWeight="bold" fontSize="sm">Sodium:</Text>
+              <Text fontSize="sm">{total.sodium}</Text>
+            </Box>
+          )}
+        </Flex>
+        {nutrition.foods && nutrition.foods.length > 1 && (
+          <Tooltip label="Full nutrition breakdown available" hasArrow>
+            <Text fontSize="xs" color="blue.500" mt={1} cursor="pointer">
+              Contains data for {nutrition.foods.length} food items
+            </Text>
+          </Tooltip>
+        )}
+      </Box>
+    );
   }
 
   return (
@@ -355,6 +406,20 @@ export default function FormPanel({
                           isInvalid={!!validationErrors[errorKey]?.includes('Menu item image is required')}
                           errorMessage="Menu item image is required"
                         />
+                        
+                        <Flex mt={2} justifyContent="flex-end">
+                          <NutritionAnalysisButton 
+                            imageUrl={item.photo_url}
+                            onAnalysisComplete={(result) => updateFormData(`menu[${index}].nutrition`, result)}
+                            isDisabled={!item.photo_url}
+                          />
+                        </Flex>
+                        
+                        {/* Show nutrition information if available */}
+                        <NutritionDisplay nutrition={item.nutrition} />
+                        
+                        {/* Nutrition Information Display */}
+                        <NutritionDisplay nutrition={item.nutrition} />
                       </VStack>
                     </Box>
                   );

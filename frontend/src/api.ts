@@ -89,3 +89,23 @@ export const getAllJobs = async () => {
     throw error;
   }
 };
+
+/**
+ * Analyze a food image to get nutritional information
+ */
+export const analyzeFoodImage = async (imageUrl: string) => {
+  try {
+    const response = await axios.post('/api/analyze-food', { image_url: imageUrl });
+    
+    if (response.data.success && response.data.analysis) {
+      return response.data.analysis;
+    } else {
+      throw new Error(response.data.message || 'Analysis failed');
+    }
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response) {
+      throw new Error(`Food analysis failed: ${error.response.data.message || error.message}`);
+    }
+    throw error;
+  }
+};

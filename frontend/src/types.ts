@@ -1,8 +1,35 @@
+export interface FoodItem {
+  name: string;
+  serving: string;
+  calories: string;
+  fat: string;
+  protein: string;
+  carbs: string;
+  fiber?: string;
+  sodium?: string;
+}
+
+export interface NutritionSummary {
+  calories: string;
+  fat: string;
+  protein: string;
+  carbs: string;
+  fiber?: string;
+  sodium?: string;
+}
+
+export interface FoodAnalysisResult {
+  foods: FoodItem[];
+  total_nutrition: NutritionSummary;
+  raw_response: string;
+}
+
 export interface MenuItem {
   name: string;
   price: number;
   description: string;
   photo_url: string;
+  nutrition?: FoodAnalysisResult;
 }
 
 export interface Scene {

@@ -1,0 +1,66 @@
+{
+  "menu": "Salad Sayur",
+  "description": "A balanced salad with 7 types of vegetables, protein, and carbohydrates.",
+  "location": "Cikokol, Tangerang",
+  "features": [
+    "MSG-Free",
+    "400 ± Kkal (calories)"
+  ],
+  "foods_included": [
+    {
+      "name": "Vegetables (7 types)",
+      "items": [
+        "Carrots",
+        "Corn kernels",
+        "Green beans",
+        "Red cabbage (shredded)",
+        "Purple onions (thinly sliced)",
+        "Cherry tomatoes",
+        "Bell peppers (orange)"
+      ]
+    },
+    {
+      "name": "Protein",
+      "items": [
+        "Grilled/roasted chicken (small chunks)",
+        "Hard-boiled egg (halved)"
+      ]
+    }
+  ],
+  "nutritional_content": {
+    "calories": 400,
+    "macronutrients": {
+      "protein": {
+        "amount": 25-30,
+        "unit": "grams",
+        "sources": ["chicken", "egg"]
+      },
+      "carbohydrates": {
+        "amount": 35-45,
+        "unit": "grams",
+        "sources": ["corn", "carrots", "cabbage", "onions", "tomatoes", "bell peppers"]
+      },
+      "fat": {
+        "amount": 15-20,
+        "unit": "grams",
+        "sources": ["egg yolk", "hidden fats (dressing/cooking oils)"]
+      }
+    },
+    "fiber": {
+      "amount": 5-8,
+      "unit": "grams",
+      "sources": ["vegetables"]
+    },
+    "vitamins_minerals": {
+      "vitamin_c": "From peppers/tomatoes",
+      "vitamin_a": "From carrots",
+      "folate": "From cabbage",
+      "potassium": "From beans/corn"
+    },
+    "notes": [
+      "Values are approximate and based on standard portion estimates.",
+      "Exact quantities may vary depending on serving size.",
+      "No added MSG (as labeled)."
+    ]
+  }
+}
