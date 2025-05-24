@@ -1,5 +1,15 @@
 {
   "jobs": {
+    "0caf30f6-471c-43cb-9d63-573bd9baa8d5": {
+      "job_id": "0caf30f6-471c-43cb-9d63-573bd9baa8d5",
+      "status": "failed",
+      "stage": "segments",
+      "percent": 30,
+      "message": "Opening scene generated",
+      "error": "failed to generate menu video for item 1: API call failed: API request failed with status 429: {\"code\":\"Throttling.RateQuota\",\"message\":\"Requests rate limit exceeded, please try again later.\",\"request_id\":\"763ea268-787a-9a35-a68a-3ef818064585\"}",
+      "start_time": "2025-05-24T21:07:16.995204+07:00",
+      "update_time": "2025-05-24T21:09:21.406882+07:00"
+    },
     "41de1a58-5627-4645-a4bc-a9bc4a947e0c": {
       "job_id": "41de1a58-5627-4645-a4bc-a9bc4a947e0c",
       "status": "completed",
@@ -21,5 +31,5 @@
       "update_time": "2025-05-24T20:11:54.917971+07:00"
     }
   },
-  "updated_at": "2025-05-24T20:11:54.91798+07:00"
+  "updated_at": "2025-05-24T21:09:21.406911+07:00"
 }

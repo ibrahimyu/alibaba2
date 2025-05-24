@@ -93,9 +93,15 @@ func AnalyzeFoodImage2(ImageURL string) (*FoodAnalysisResult, error) {
 	if strings.TrimSpace(rawOutput)[0] == '{' {
 		// Try to parse as JSON first
 		var foodData struct {
-			Menu               string   `json:"menu"`
-			Description        string   `json:"description"`
-			Features           []string `json:"features"`
+			Menu          string   `json:"menu"`
+			Description   string   `json:"description"`
+			Features      []string `json:"features"`
+			Ingredients   []string `json:"ingredients"`
+			Allergens     []string `json:"allergens"`
+			FoodsIncluded []struct {
+				Name  string   `json:"name"`
+				Items []string `json:"items"`
+			} `json:"foods_included"`
 			NutritionalContent struct {
 				Calories       int `json:"calories"`
 				Macronutrients struct {
@@ -123,6 +129,10 @@ func AnalyzeFoodImage2(ImageURL string) (*FoodAnalysisResult, error) {
 			result := &FoodAnalysisResult{
 				Foods:       make([]FoodItem, 0),
 				RawResponse: rawOutput,
+				Menu:        foodData.Menu,
+				Description: foodData.Description,
+				Ingredients: foodData.Ingredients,
+				Allergens:   foodData.Allergens,
 			}
 
 			// Add the main item

@@ -21,6 +21,10 @@ export interface NutritionSummary {
 export interface FoodAnalysisResult {
   foods: FoodItem[];
   total_nutrition: NutritionSummary;
+  ingredients?: string[];
+  allergens?: string[];
+  menu?: string;
+  description?: string;
   raw_response: string;
 }
 

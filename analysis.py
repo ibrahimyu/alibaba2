@@ -20,7 +20,7 @@ def get_response(image_url):
               "content": [
                 {
                   "type": "text",
-                  "text": """Analyze this food image and output the result in ONLY valid JSON format exactly as follows, with no extra explanations or text outside the JSON:
+                  "text": """Analyze this food image and output the result in ONLY valid JSON format exactly as follows, with no extra explanations or text outside the JSON. Make sure to identify all possible allergens that might be present in the food:
 
 {
   "menu": "Menu item name",
@@ -46,6 +46,23 @@ def get_response(image_url):
         "Food item 2"
       ]
     }
+  ],
+  "ingredients": [
+    "Ingredient 1",
+    "Ingredient 2",
+    "Ingredient 3"
+  ],
+  "allergens": [
+    "Eggs",
+    "Milk",
+    "Peanuts",
+    "Tree nuts",
+    "Fish",
+    "Shellfish",
+    "Soy",
+    "Wheat",
+    "Gluten",
+    "Sesame"
   ],
   "nutritional_content": {
     "calories": 400,

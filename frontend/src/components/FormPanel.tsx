@@ -28,7 +28,8 @@ import {
   NumberDecrementStepper,
   Divider,
   IconButton,
-  Tooltip
+  Tooltip,
+  Tag
 } from '@chakra-ui/react'
 import { useState, useMemo } from 'react'
 import { VideoFormData, MenuItem, ProgressData, FoodAnalysisResult } from '../types'
@@ -181,6 +182,13 @@ export default function FormPanel({
     
     return (
       <Box mt={3} p={3} borderWidth={1} borderRadius="md" bg="gray.50" _dark={{ bg: "gray.700" }}>
+        {nutrition.menu && (
+          <Heading size="sm" mb={1}>{nutrition.menu}</Heading>
+        )}
+        {nutrition.description && (
+          <Text fontSize="sm" mb={2} fontStyle="italic">{nutrition.description}</Text>
+        )}
+
         <Heading size="xs" mb={2}>Nutritional Information</Heading>
         <Flex flexWrap="wrap">
           <Box flex="1" minW="120px" p={1}>
@@ -212,6 +220,33 @@ export default function FormPanel({
             </Box>
           )}
         </Flex>
+        
+        {nutrition.ingredients && nutrition.ingredients.length > 0 && (
+          <Box mt={3}>
+            <Heading size="xs" mb={1}>Ingredients</Heading>
+            <Flex flexWrap="wrap" gap={1}>
+              {nutrition.ingredients.map((ingredient, idx) => (
+                <Tag size="sm" key={idx} colorScheme="green" fontSize="xs">
+                  {ingredient}
+                </Tag>
+              ))}
+            </Flex>
+          </Box>
+        )}
+        
+        {nutrition.allergens && nutrition.allergens.length > 0 && (
+          <Box mt={3}>
+            <Heading size="xs" mb={1}>Allergens</Heading>
+            <Flex flexWrap="wrap" gap={1}>
+              {nutrition.allergens.map((allergen, idx) => (
+                <Tag size="sm" key={idx} colorScheme="red" fontSize="xs">
+                  {allergen}
+                </Tag>
+              ))}
+            </Flex>
+          </Box>
+        )}
+        
         {nutrition.foods && nutrition.foods.length > 1 && (
           <Tooltip label="Full nutrition breakdown available" hasArrow>
             <Text fontSize="xs" color="blue.500" mt={1} cursor="pointer">

@@ -79,6 +79,10 @@ type DashscopeUsage struct {
 type FoodAnalysisResult struct {
 	Foods          []FoodItem       `json:"foods"`
 	TotalNutrition NutritionSummary `json:"total_nutrition"`
+	Ingredients    []string         `json:"ingredients,omitempty"`
+	Allergens      []string         `json:"allergens,omitempty"`
+	Menu           string           `json:"menu,omitempty"`
+	Description    string           `json:"description,omitempty"`
 	RawResponse    string           `json:"raw_response"`
 }
 
