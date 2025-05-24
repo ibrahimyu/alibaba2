@@ -105,7 +105,25 @@ To use the nutrition analysis feature, set the following environment variable:
 DASHSCOPE_API_KEY=your_dashscope_api_key
 ```
 
-This connects to Alibaba Cloud's DashScope API for image analysis.
+This connects to Alibaba Cloud's DashScope API for image analysis. The application uses DashScope's multimodal API directly, with the following specifications:
+
+- API Endpoint: `https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation`
+- Model: `qvq-max` (Multimodal AI model for image understanding)
+- Response Format: Server-Sent Events (SSE) streaming
+- Headers:
+  - `X-DashScope-SSE: enable` (Enables streaming responses)
+  - `Accept: text/event-stream` (Requests SSE format)
+
+### Testing the Nutrition Analysis:
+
+You can test the API connection with the provided test file:
+
+```bash
+cd backend-go
+go run tests/test_real_api.go https://example.com/path-to-food-image.jpg
+```
+
+Replace the URL with a valid food image URL to test the nutritional analysis functionality.
 
 ## License
 

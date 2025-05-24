@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 // DashscopeRequest represents the structure for the Dashscope API request
@@ -62,8 +64,8 @@ type DashscopeChoice struct {
 
 // DashscopeChoiceMessage represents the message in a choice
 type DashscopeChoiceMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role    string                   `json:"role"`
+	Content []map[string]interface{} `json:"content"`
 }
 
 // DashscopeUsage represents the token usage information
@@ -156,6 +158,9 @@ func AnalyzeFoodImage(imageURL string) (*FoodAnalysisResult, error) {
 		return nil, fmt.Errorf("error marshaling request: %v", err)
 	}
 
+	// Debug log - enable if needed
+	// fmt.Printf("Request payload: %s\n", string(jsonData))
+
 	// Create HTTP request
 	req, err := http.NewRequest("POST", baseURL, bytes.NewBuffer(jsonData))
 	if err != nil {
@@ -165,46 +170,170 @@ func AnalyzeFoodImage(imageURL string) (*FoodAnalysisResult, error) {
 	// Add headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("X-DashScope-SSE", "disable") // Disable server-sent events for simpler processing
+	req.Header.Set("X-DashScope-SSE", "enable")   // Enable server-sent events for streaming
+	req.Header.Set("Accept", "text/event-stream") // Explicitly request SSE format
+
+	// Set a longer timeout for streaming responses
+	client := &http.Client{
+		Timeout: 120 * time.Second, // 2 minute timeout
+	}
 
 	// Send request
-	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("error sending request: %v", err)
 	}
 	defer resp.Body.Close()
 
-	// Read response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("error reading response: %v", err)
-	}
-
-	// Check for errors
+	// Check for HTTP-level errors
 	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 	}
 
-	// Parse response
-	var response DashscopeResponse
-	err = json.Unmarshal(body, &response)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing response: %v", err)
+	// Verify we got the expected content type for streaming
+	contentType := resp.Header.Get("Content-Type")
+	if !strings.Contains(contentType, "text/event-stream") {
+		// Not a stream response, try to parse it as a regular JSON response
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("error reading non-streaming response: %v", err)
+		}
+
+		// Try to parse as normal JSON response
+		var directResponse DashscopeResponse
+		if err := json.Unmarshal(body, &directResponse); err == nil {
+			// Successfully parsed as direct response
+			if directResponse.Code != "" && directResponse.Code != "Success" && directResponse.Code != "0" {
+				return nil, fmt.Errorf("API error: %s - %s", directResponse.Code, directResponse.Message)
+			}
+
+			if len(directResponse.Output.Choices) > 0 {
+				// Extract the text from the content array
+				var rawResponse string
+				for _, contentItem := range directResponse.Output.Choices[0].Message.Content {
+					if text, ok := contentItem["text"]; ok {
+						if textStr, ok := text.(string); ok {
+							rawResponse += textStr
+						}
+					}
+				}
+
+				result := processFoodAnalysis(rawResponse)
+				result.RawResponse = rawResponse
+				return result, nil
+			}
+		}
+
+		return nil, fmt.Errorf("unexpected response format: %s", contentType)
 	}
 
-	// Check for API-level errors
-	if response.Code != "" && response.Code != "Success" {
-		return nil, fmt.Errorf("API error: %s - %s", response.Code, response.Message)
+	// Process the streaming SSE response
+	scanner := bufio.NewScanner(resp.Body)
+	var finalResponse *DashscopeResponse
+	var accumulator strings.Builder
+	var isThinking bool
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		// Debug log only if needed
+		// fmt.Printf("Received line: %s\n", line)
+
+		// Skip empty lines
+		if line == "" {
+			continue
+		}
+
+		// Handle SSE prefix
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+
+		// Remove "data: " prefix
+		jsonData := strings.TrimPrefix(line, "data: ")
+
+		// Check for "[DONE]" marker
+		if jsonData == "[DONE]" {
+			break
+		}
+
+		// Parse the line as JSON
+		var streamResponse DashscopeResponse
+		if err := json.Unmarshal([]byte(jsonData), &streamResponse); err != nil {
+			fmt.Printf("Warning: Error parsing JSON: %v\n", err)
+			continue // Skip parsing errors, just try the next line
+		}
+
+		// Check for API-level errors
+		if streamResponse.Code != "" && streamResponse.Code != "Success" && streamResponse.Code != "0" {
+			return nil, fmt.Errorf("API error: %s - %s", streamResponse.Code, streamResponse.Message)
+		}
+
+		// Skip empty responses
+		if len(streamResponse.Output.Choices) == 0 {
+			continue
+		}
+
+		// Track the latest response object for metadata
+		finalResponse = &streamResponse
+
+		// Extract the text chunks from the message content
+		// The structure is: choices[0].message.content[0].text
+		if len(streamResponse.Output.Choices[0].Message.Content) > 0 {
+			// Access the text field safely to avoid potential panics
+			contentMap := streamResponse.Output.Choices[0].Message.Content[0]
+			text, ok := contentMap["text"]
+			if !ok || text == nil {
+				// If text is not found or nil, skip this chunk
+				continue
+			}
+
+			// Extract the text value as a string
+			textValue, ok := text.(string)
+			if !ok {
+				// If text is not a string, skip this chunk
+				continue
+			}
+
+			// Check if we're in a thinking block
+			if strings.Contains(textValue, "Thinking:") ||
+				strings.Contains(textValue, "I'm analyzing") ||
+				strings.Contains(textValue, "Let me look") {
+				isThinking = true
+				// Don't accumulate thinking content
+				continue
+			}
+
+			// If we have nutritional content, or if we're not in a thinking block,
+			// accumulate the content
+			if !isThinking ||
+				strings.Contains(textValue, "**Nutritional Content") ||
+				strings.Contains(textValue, "Calories:") ||
+				strings.Contains(textValue, "Protein:") {
+				// Exit thinking mode if we encounter nutritional content
+				if isThinking {
+					isThinking = false
+				}
+				// Accumulate the text
+				accumulator.WriteString(textValue)
+			}
+		}
 	}
 
-	// Ensure we have content
-	if len(response.Output.Choices) == 0 {
-		return nil, fmt.Errorf("no content in response")
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading stream: %v", err)
 	}
 
-	// Extract text content from response
-	rawResponse := response.Output.Choices[0].Message.Content
+	// Use the accumulated content as the final response
+	accumulatedContent := accumulator.String()
+
+	// If we didn't get any content, that's an error
+	if accumulatedContent == "" || finalResponse == nil {
+		return nil, fmt.Errorf("no valid nutrition content found in response")
+	}
+
+	// Use the accumulated content
+	rawResponse := accumulatedContent
 
 	// Process the raw response into structured data
 	result := processFoodAnalysis(rawResponse)
@@ -219,8 +348,13 @@ func processFoodAnalysis(rawText string) *FoodAnalysisResult {
 		Foods: make([]FoodItem, 0),
 	}
 
+	// Clean up the text - remove markdown artifacts that might interfere with parsing
+	cleanText := strings.ReplaceAll(rawText, "\\n", "\n")
+	cleanText = strings.ReplaceAll(cleanText, "\\*", "*")
+	cleanText = strings.ReplaceAll(cleanText, "\\-", "-")
+
 	// Split the text by lines for processing
-	lines := strings.Split(rawText, "\n")
+	lines := strings.Split(cleanText, "\n")
 
 	var currentFood *FoodItem
 	var inTotalSection bool
@@ -228,25 +362,53 @@ func processFoodAnalysis(rawText string) *FoodAnalysisResult {
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 
-		// Skip empty lines and headers
-		if line == "" || strings.Contains(line, "**Nutritional Content") {
+		// Skip empty lines
+		if line == "" {
 			continue
 		}
 
-		// Check if we're starting a new food item
-		if match := strings.Index(line, "**"); match == 0 {
+		// Skip header lines but note when we're entering the nutritional section
+		if strings.Contains(line, "**Nutritional Content") ||
+			strings.Contains(line, "*Nutritional Content") ||
+			strings.Contains(line, "Nutritional Content") {
+			continue
+		}
+
+		// Check if we're starting a new food item - handle various markdown formats
+		if (strings.HasPrefix(line, "**") ||
+			strings.HasPrefix(line, "*") ||
+			strings.HasPrefix(line, "- ") ||
+			strings.HasPrefix(line, "1. ")) &&
+			(strings.Contains(line, ":") ||
+				strings.Contains(line, ")") ||
+				strings.Contains(line, "g") ||
+				strings.Contains(line, "serving")) {
+
 			// Save previous food if it exists
 			if currentFood != nil {
 				result.Foods = append(result.Foods, *currentFood)
 			}
 
+			// Clean up the line, removing any markdown symbols
+			cleanLine := strings.TrimPrefix(line, "- ")
+			cleanLine = strings.TrimPrefix(cleanLine, "* ")
+			cleanLine = strings.TrimPrefix(cleanLine, "** ")
+			cleanLine = strings.TrimPrefix(cleanLine, "1. ")
+			cleanLine = strings.TrimPrefix(cleanLine, "**")
+			cleanLine = strings.TrimSuffix(cleanLine, "**")
+
 			// Start new food item
-			nameParts := strings.SplitN(strings.Trim(line, "* "), "(", 2)
+			nameParts := strings.SplitN(cleanLine, "(", 2)
 			name := strings.TrimSpace(nameParts[0])
+
+			// Handle any colon in the name
+			if strings.Contains(name, ":") {
+				name = strings.TrimSpace(strings.Split(name, ":")[0])
+			}
 
 			serving := ""
 			if len(nameParts) > 1 {
-				serving = strings.TrimSpace(strings.TrimSuffix(nameParts[1], "):"))
+				serving = strings.TrimSpace(strings.TrimSuffix(strings.TrimSuffix(nameParts[1], "):"), ")"))
 			}
 
 			currentFood = &FoodItem{
@@ -254,19 +416,30 @@ func processFoodAnalysis(rawText string) *FoodAnalysisResult {
 				Serving: serving,
 			}
 
-			inTotalSection = strings.Contains(line, "**Total") || strings.Contains(line, "Total Estimated")
+			inTotalSection = strings.Contains(line, "Total") ||
+				strings.Contains(line, "TOTAL") ||
+				strings.HasPrefix(cleanLine, "Total")
 			continue
 		}
 
 		// Process nutrition lines
 		if currentFood != nil && strings.Contains(line, ":") {
-			parts := strings.SplitN(line, ":", 2)
+			// Clean up any markdown artifacts
+			cleanLine := strings.TrimPrefix(line, "- ")
+			cleanLine = strings.TrimPrefix(cleanLine, "* ")
+			cleanLine = strings.TrimPrefix(cleanLine, "** ")
+			cleanLine = strings.TrimPrefix(cleanLine, "**")
+
+			parts := strings.SplitN(cleanLine, ":", 2)
 			if len(parts) == 2 {
 				nutrient := strings.ToLower(strings.TrimSpace(parts[0]))
 				value := strings.TrimSpace(parts[1])
 
-				// Remove leading dash if present
+				// Remove leading dash or bullet if present
 				if strings.HasPrefix(nutrient, "-") {
+					nutrient = strings.TrimSpace(nutrient[1:])
+				}
+				if strings.HasPrefix(nutrient, "•") {
 					nutrient = strings.TrimSpace(nutrient[1:])
 				}
 
