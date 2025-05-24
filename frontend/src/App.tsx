@@ -6,7 +6,6 @@ import VideoPreviewPanel from './components/VideoPreviewPanel'
 import JobsPanel from './components/JobsPanel'
 import { generateVideo, getJobProgress, getAllJobs } from './api'
 
-// Default form data matches the sample_input_new.json structure
 const defaultFormData: VideoFormData = {
   resto_name: "My Restaurant",
   resto_address: "123 Main Street",
