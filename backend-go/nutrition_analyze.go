@@ -15,12 +15,26 @@ func AnalyzeFoodImage2(ImageURL string) (*FoodAnalysisResult, error) {
 		return nil, fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	// The path to the Python script is one directory up from the backend-go directory
-	scriptPath := filepath.Join(filepath.Dir(currentDir), "analysis.py")
+	// Check multiple possible locations for the Python script
+	possibleLocations := []string{
+		filepath.Join(filepath.Dir(currentDir), "analysis.py"), // Parent directory
+		filepath.Join(currentDir, "analysis.py"),               // Current directory
+		"/Users/ibrahim/Documents/alibaba2/analysis.py",        // Root of project directory
+	}
+
+	// Find the first location that exists
+	scriptPath := ""
+	for _, path := range possibleLocations {
+		if _, err := os.Stat(path); err == nil {
+			scriptPath = path
+			fmt.Printf("Found analysis.py at: %s\n", scriptPath)
+			break
+		}
+	}
 
 	// Make sure the Python script exists
-	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("analysis.py not found at %s: %w", scriptPath, err)
+	if scriptPath == "" {
+		return nil, fmt.Errorf("analysis.py not found in any of these locations: %v", possibleLocations)
 	}
 
 	// Check if there's a virtual environment in the project directory
@@ -45,8 +59,17 @@ func AnalyzeFoodImage2(ImageURL string) (*FoodAnalysisResult, error) {
 		cmd = exec.Command("python3", scriptPath, ImageURL)
 	}
 
-	// Set the working directory to where the script is
-	cmd.Dir = filepath.Dir(scriptPath)
+	// Set the working directory to the parent directory of the script
+	// This ensures any relative paths in the script work correctly
+	scriptDir := filepath.Dir(scriptPath)
+	cmd.Dir = scriptDir
+	fmt.Printf("Setting working directory to: %s\n", scriptDir)
+
+	// Add debug information to environment
+	cmd.Env = os.Environ()
+
+	// Print the command we're about to run for debugging
+	fmt.Printf("Executing command: %s %s\n", cmd.Path, strings.Join(cmd.Args[1:], " "))
 
 	// Capture the output
 	output, err := cmd.CombinedOutput()

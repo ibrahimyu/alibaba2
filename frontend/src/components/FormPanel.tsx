@@ -219,6 +219,25 @@ export default function FormPanel({
             </Text>
           </Tooltip>
         )}
+        {nutrition.foods && nutrition.foods.length > 0 && (
+          <Box mt={2}>
+            <Divider my={2} />
+            <Heading size="xs" mb={2}>Individual Food Items</Heading>
+            {nutrition.foods.map((food, idx) => (
+              <Box key={idx} p={2} mt={1} borderWidth={1} borderRadius="sm" fontSize="xs">
+                <Text fontWeight="medium">{food.name}</Text>
+                <Flex flexWrap="wrap" mt={1}>
+                  <Text mr={2}>Calories: {food.calories}</Text>
+                  <Text mr={2}>Protein: {food.protein}</Text>
+                  <Text mr={2}>Carbs: {food.carbs}</Text>
+                  <Text mr={2}>Fat: {food.fat}</Text>
+                  {food.fiber && <Text mr={2}>Fiber: {food.fiber}</Text>}
+                  {food.sodium && <Text mr={2}>Sodium: {food.sodium}</Text>}
+                </Flex>
+              </Box>
+            ))}
+          </Box>
+        )}
       </Box>
     );
   }

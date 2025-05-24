@@ -9,7 +9,17 @@
       "video_url": "/output/output_41de1a58-5627-4645-a4bc-a9bc4a947e0c/final_video.mp4",
       "start_time": "2025-05-24T18:34:38.100015+07:00",
       "update_time": "2025-05-24T19:17:13.721346+07:00"
+    },
+    "7a0100b0-04dd-4cb7-bfb8-08b6e78ae029": {
+      "job_id": "7a0100b0-04dd-4cb7-bfb8-08b6e78ae029",
+      "status": "completed",
+      "stage": "finalizing",
+      "percent": 100,
+      "message": "Video generation complete",
+      "video_url": "/output/output_7a0100b0-04dd-4cb7-bfb8-08b6e78ae029/final_video.mp4",
+      "start_time": "2025-05-24T20:06:22.151946+07:00",
+      "update_time": "2025-05-24T20:11:54.917971+07:00"
     }
   },
-  "updated_at": "2025-05-24T19:17:13.721382+07:00"
+  "updated_at": "2025-05-24T20:11:54.91798+07:00"
 }
