@@ -1,65 +1,70 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
-
-	dashscopego "github.com/eswulei/dashscope-go"
-	"github.com/eswulei/dashscope-go/qwen"
+	"os/exec"
+	"path/filepath"
+	"strings"
 )
 
 func AnalyzeFoodImage2(ImageURL string) (*FoodAnalysisResult, error) {
-	model := qwen.QwenVLPlus
-	token := os.Getenv("DASHSCOPE_API_KEY")
-
-	if token == "" {
-		panic("token is empty")
-	} else {
-		fmt.Println("Using token:", token)
-	}
-
-	cli := dashscopego.NewTongyiClient(model, token)
-
-	sysContent := qwen.VLContentList{
-		{
-			Text: "You are a helpful assistant.",
-		},
-	}
-	userContent := qwen.VLContentList{
-		{
-			Text: "What is the nutritional content with accurate numbers in this picture and what foods are in it and output ingredients and nutrition only, no explanations",
-		},
-		{
-			Image: ImageURL,
-		},
-	}
-
-	input := dashscopego.VLInput{
-		Messages: []dashscopego.VLMessage{
-			{Role: "system", Content: &sysContent},
-			{Role: "user", Content: &userContent},
-		},
-	}
-
-	// (可选 SSE开启)需要流式输出时 通过该 Callback Function 获取结果
-	streamCallbackFn := func(ctx context.Context, chunk []byte) error {
-		fmt.Print(string(chunk))
-		return nil
-	}
-	req := &dashscopego.VLRequest{
-		Input:       input,
-		StreamingFn: streamCallbackFn,
-	}
-
-	ctx := context.TODO()
-	resp, err := cli.CreateVLCompletion(ctx, req)
+	// Get the current directory
+	currentDir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	fmt.Println("\nnon-stream result: ")
-	fmt.Println(resp.Output.Choices[0].Message.Content.ToString())
+	// The path to the Python script is one directory up from the backend-go directory
+	scriptPath := filepath.Join(filepath.Dir(currentDir), "analysis.py")
 
-	return processFoodAnalysis(resp.Output.Choices[0].Message.Content.ToString()), nil
+	// Make sure the Python script exists
+	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("analysis.py not found at %s: %w", scriptPath, err)
+	}
+
+	// Check if there's a virtual environment in the project directory
+	venvPath := filepath.Join(filepath.Dir(scriptPath), "venv")
+	venvExists := false
+	if _, err := os.Stat(venvPath); err == nil {
+		venvExists = true
+	}
+
+	var cmd *exec.Cmd
+	if venvExists {
+		// If on Unix-like system (macOS/Linux), use the virtual environment's Python
+		venvPython := filepath.Join(venvPath, "bin", "python")
+		if _, err := os.Stat(venvPython); err == nil {
+			cmd = exec.Command(venvPython, scriptPath, ImageURL)
+		} else {
+			// Fallback to system Python
+			cmd = exec.Command("python3", scriptPath, ImageURL)
+		}
+	} else {
+		// Use system Python if no venv
+		cmd = exec.Command("python3", scriptPath, ImageURL)
+	}
+
+	// Set the working directory to where the script is
+	cmd.Dir = filepath.Dir(scriptPath)
+
+	// Capture the output
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("error running Python script: %w, output: %s", err, string(output))
+	}
+
+	// The output of the script is the text content of the nutrition analysis
+	rawOutput := string(output)
+
+	fmt.Println("Python script result:")
+	fmt.Println(rawOutput)
+
+	// Check if the output indicates an error
+	if strings.Contains(rawOutput, "ERROR PROCESSING IMAGE:") {
+		return nil, fmt.Errorf("python script error: %s", rawOutput)
+	}
+
+	// Process the result using the existing processFoodAnalysis function
+	return processFoodAnalysis(rawOutput), nil
 }

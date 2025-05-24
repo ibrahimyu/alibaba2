@@ -36,11 +36,13 @@ def get_response(image_url):
     # Parse the JSON response
     response_json = json.loads(completion.model_dump_json())
     
-    # Extract and return the content
+    # Extract and return just the content as plain text
     if 'choices' in response_json and len(response_json['choices']) > 0:
         return response_json['choices'][0]['message']['content']
     else:
-        return response_json
+        # If no choices found, return the whole response as a string
+        # but with a clear error marker that processFoodAnalysis can handle
+        return "ERROR PROCESSING IMAGE: " + json.dumps(response_json, indent=2)
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Analyze nutritional content in an image')
@@ -50,7 +52,10 @@ if __name__=='__main__':
     
     try:
         result = get_response(args.image_url)
+        # Print the raw result with no additional formatting
+        # This will be captured by the Go code and passed to processFoodAnalysis
         print(result)
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
+        # Print error in a way the Go code can recognize and handle
+        print(f"ERROR PROCESSING IMAGE: {e}", file=sys.stderr)
         sys.exit(1)
