@@ -1,4 +1,4 @@
-# GoBiz Video Generator
+# GoBiz Showcase
 
 This application generates promotional videos for restaurants using AI. It includes a backend server built with Express.js and a frontend UI built with React and Chakra UI.
 

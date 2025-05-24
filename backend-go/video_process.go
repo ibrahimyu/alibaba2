@@ -388,7 +388,7 @@ func combineVideosWithMusic(videoSegmentPaths []string, musicPath string, output
 
 // copyFile copies a file from src to dst
 func copyFile(src string, dst string) error {
-	input, err := ioutil.ReadFile(src)
+	input, err := os.ReadFile(src)
 	if err != nil {
 		return fmt.Errorf("failed to read source file: %w", err)
 	}

@@ -120,7 +120,7 @@ function App() {
   return (
     <Container maxW="container.xl" py={6}>
       <Heading as="h1" mb={6} textAlign="center" size="xl" color="brand.700">
-        GoBiz Video Generator
+        GoBiz Showcase
       </Heading>
       
       <Box display="flex" flexDirection={{ base: 'column', lg: 'row' }} gap={6}>
