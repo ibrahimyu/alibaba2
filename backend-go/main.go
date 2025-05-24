@@ -19,6 +19,12 @@ func main() {
 		log.Println("Warning: Error loading .env file, using environment variables")
 	}
 
+	// Load jobs from persistent storage
+	if err := LoadJobs(); err != nil {
+		log.Printf("Error loading jobs from persistent storage: %v", err)
+		log.Println("Starting with empty job list")
+	}
+
 	// Create a new Fiber instance
 	app := fiber.New(fiber.Config{
 		BodyLimit: 10 * 1024 * 1024, // 10MB limit for file uploads

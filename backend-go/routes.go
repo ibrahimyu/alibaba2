@@ -305,6 +305,9 @@ func handleVideoGeneration(c *fiber.Ctx) error {
 	}
 	progressMutex.Unlock()
 
+	// Save job to persistent storage
+	go SaveJobs()
+
 	// Create a unique output directory for this job
 	outputDirName := fmt.Sprintf("output_%s", jobID)
 	outputDir := filepath.Join(".", "output", outputDirName)
@@ -371,6 +374,9 @@ func updateProgress(jobID string, stage string, percent int, message string) {
 		job.Percent = percent
 		job.Message = message
 		job.UpdateTime = time.Now()
+
+		// Save jobs to persistent storage
+		go SaveJobs()
 	}
 }
 
@@ -384,6 +390,9 @@ func completeJob(jobID string, videoURL string) {
 		job.Message = "Video generation complete"
 		job.VideoURL = videoURL
 		job.UpdateTime = time.Now()
+
+		// Save jobs to persistent storage
+		go SaveJobs()
 	}
 }
 
@@ -395,6 +404,9 @@ func failJob(jobID string, errorMsg string) {
 		job.Status = "failed"
 		job.Error = errorMsg
 		job.UpdateTime = time.Now()
+
+		// Save jobs to persistent storage
+		go SaveJobs()
 	}
 }
 
