@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -467,39 +468,121 @@ func combineVideosWithMusic(videoSegmentPaths []string, musicPath string, output
 		return "", fmt.Errorf("no video segments to combine")
 	}
 
-	// Create file list for FFmpeg using absolute paths
-	fileListPath := filepath.Join(outputDir, "filelist.txt")
-	fileListContent := ""
-	for _, videoPath := range videoSegmentPaths {
-		// Convert to absolute path to avoid path resolution issues
-		absVideoPath, err := filepath.Abs(videoPath)
+	// Handle special case with only one video
+	if len(videoSegmentPaths) == 1 {
+		combinedVideoPath := filepath.Join(outputDir, "combined_video.mp4")
+		absVideoPath, err := filepath.Abs(videoSegmentPaths[0])
 		if err != nil {
-			return "", fmt.Errorf("failed to get absolute path for %s: %w", videoPath, err)
+			return "", fmt.Errorf("failed to get absolute path for %s: %w", videoSegmentPaths[0], err)
 		}
-		fileListContent += fmt.Sprintf("file '%s'\n", absVideoPath)
+		absCombinedVideoPath, err := filepath.Abs(combinedVideoPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to get absolute path for combined video: %w", err)
+		}
+
+		// Just copy the single video
+		copyCmd := exec.Command("ffmpeg", "-i", absVideoPath, "-c", "copy", absCombinedVideoPath)
+		output, err := copyCmd.CombinedOutput()
+		if err != nil {
+			return "", fmt.Errorf("failed to copy single video: %w, output: %s", err, string(output))
+		}
+	} else if len(videoSegmentPaths) > 1 {
+		log.Printf("Combining %d video segments with fade transitions", len(videoSegmentPaths))
+
+		// Create temp directory for transition processing
+		tempDir := filepath.Join(outputDir, "temp_transitions")
+		if _, err := os.Stat(tempDir); os.IsNotExist(err) {
+			os.MkdirAll(tempDir, 0755)
+		}
+
+		// Duration of transition in seconds
+		transitionDuration := 1.0
+
+		// Process videos with transitions
+		combinedVideoPath := filepath.Join(outputDir, "combined_video.mp4")
+		absCombinedVideoPath, err := filepath.Abs(combinedVideoPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to get absolute path for combined video: %w", err)
+		}
+
+		// Start with the first video
+		firstVideoPath, err := filepath.Abs(videoSegmentPaths[0])
+		if err != nil {
+			return "", fmt.Errorf("failed to get absolute path for %s: %w", videoSegmentPaths[0], err)
+		}
+
+		// Copy the first video as starting point
+		tempOutput := filepath.Join(tempDir, "temp_0.mp4")
+		absFirstOutput, err := filepath.Abs(tempOutput)
+		if err != nil {
+			return "", fmt.Errorf("failed to get absolute path for temp output: %w", err)
+		}
+
+		copyCmd := exec.Command("ffmpeg", "-i", firstVideoPath, "-c", "copy", absFirstOutput)
+		output, err := copyCmd.CombinedOutput()
+		if err != nil {
+			return "", fmt.Errorf("failed to copy first video: %w, output: %s", err, string(output))
+		}
+
+		// Process each successive video with a fade transition
+		currentInput := absFirstOutput
+
+		for i := 1; i < len(videoSegmentPaths); i++ {
+			nextVideoPath, err := filepath.Abs(videoSegmentPaths[i])
+			if err != nil {
+				return "", fmt.Errorf("failed to get absolute path for %s: %w", videoSegmentPaths[i], err)
+			}
+
+			// Create next output path
+			nextOutput := filepath.Join(tempDir, fmt.Sprintf("temp_%d.mp4", i))
+			absNextOutput, err := filepath.Abs(nextOutput)
+			if err != nil {
+				return "", fmt.Errorf("failed to get absolute path for next output: %w", err)
+			}
+
+			// Get duration of current video
+			duration := getVideoDuration(currentInput)
+			offsetTime := duration - transitionDuration
+			if offsetTime < 0 {
+				offsetTime = 0
+			}
+
+			// Apply xfade filter for fade transition
+			xfadeCmd := exec.Command("ffmpeg",
+				"-i", currentInput,
+				"-i", nextVideoPath,
+				"-filter_complex", fmt.Sprintf("[0:v][1:v]xfade=transition=fade:duration=%.1f:offset=%.1f[outv]",
+					transitionDuration, offsetTime),
+				"-map", "[outv]",
+				"-c:v", "libx264", "-preset", "medium", "-crf", "23",
+				absNextOutput)
+
+			output, err := xfadeCmd.CombinedOutput()
+			if err != nil {
+				return "", fmt.Errorf("failed to create fade transition %d: %w, output: %s", i, err, string(output))
+			}
+
+			// Update current input for next iteration
+			currentInput = absNextOutput
+		}
+
+		// Copy final temp file to combined video path
+		if err := copyFile(currentInput, absCombinedVideoPath); err != nil {
+			return "", fmt.Errorf("failed to copy final combined video: %w", err)
+		}
+
+		// Clean up temp files
+		os.RemoveAll(tempDir)
+	} else {
+		// This shouldn't happen due to check at beginning, but just in case
+		return "", fmt.Errorf("empty video segments array")
 	}
 
-	if err := os.WriteFile(fileListPath, []byte(fileListContent), 0644); err != nil {
-		return "", fmt.Errorf("failed to write file list: %w", err)
-	}
-
-	// Combine videos using absolute paths
+	// At this point we have a combined video at combinedVideoPath regardless of which path we took above
 	combinedVideoPath := filepath.Join(outputDir, "combined_video.mp4")
-	// Get absolute paths
-	absFileListPath, err := filepath.Abs(fileListPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to get absolute path for file list: %w", err)
-	}
 	absCombinedVideoPath, err := filepath.Abs(combinedVideoPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to get absolute path for combined video: %w", err)
-	}
-
-	combineCmd := exec.Command("ffmpeg", "-f", "concat", "-safe", "0", "-i", absFileListPath, "-c", "copy", absCombinedVideoPath)
-
-	output, err := combineCmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("failed to combine videos: %w, output: %s", err, string(output))
 	}
 
 	finalVideoPath := filepath.Join(outputDir, "final_video.mp4")
@@ -552,4 +635,23 @@ func copyFile(src string, dst string) error {
 	}
 
 	return nil
+}
+
+// getVideoDuration gets the duration of a video file in seconds using ffprobe
+func getVideoDuration(videoPath string) float64 {
+	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "format=duration",
+		"-of", "default=noprint_wrappers=1:nokey=1", videoPath)
+	output, err := cmd.Output()
+	if err != nil {
+		log.Printf("Warning: Failed to get video duration: %v", err)
+		return 5.0 // default duration if unable to determine
+	}
+
+	duration, err := strconv.ParseFloat(strings.TrimSpace(string(output)), 64)
+	if err != nil {
+		log.Printf("Warning: Failed to parse video duration: %v", err)
+		return 5.0
+	}
+
+	return duration
 }
