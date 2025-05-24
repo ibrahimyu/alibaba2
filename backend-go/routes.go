@@ -79,6 +79,98 @@ func setupAPIRoutes(router fiber.Router, uploadsDir string) {
 		return handleVideoGeneration(c)
 	})
 
+	// Resume video generation endpoint
+	router.Post("/resume-video/:jobId", func(c *fiber.Ctx) error {
+		jobID := c.Params("jobId")
+
+		// Check if job exists
+		progressMutex.RLock()
+		job, exists := jobProgressMap[jobID]
+		progressMutex.RUnlock()
+
+		if !exists {
+			return c.Status(404).JSON(fiber.Map{
+				"success": false,
+				"message": "Job not found",
+			})
+		}
+
+		// Only failed jobs can be resumed
+		if job.Status != "failed" {
+			return c.Status(400).JSON(fiber.Map{
+				"success": false,
+				"message": "Only failed jobs can be resumed",
+			})
+		}
+
+		// Reset job status
+		progressMutex.Lock()
+		job.Status = "processing"
+		job.Error = ""
+		job.Stage = "resuming"
+		job.Message = "Resuming video generation"
+		job.UpdateTime = time.Now()
+		progressMutex.Unlock()
+
+		// Create output directory path
+		outputDirName := fmt.Sprintf("output_%s", jobID)
+		outputDir := filepath.Join(".", "output", outputDirName)
+
+		// Restore input data from checkpoint or request body
+		var inputData VideoFormData
+		checkpointInputFile := filepath.Join(os.TempDir(), fmt.Sprintf("input_%s.json", jobID))
+
+		// If input file doesn't exist, use request body
+		if _, err := os.Stat(checkpointInputFile); os.IsNotExist(err) {
+			if err := c.BodyParser(&inputData); err != nil {
+				return c.Status(400).JSON(fiber.Map{
+					"success": false,
+					"message": "Invalid request data",
+					"error":   err.Error(),
+				})
+			}
+
+			// Save the new input data
+			inputJSON, _ := json.MarshalIndent(inputData, "", "  ")
+			if err := os.WriteFile(checkpointInputFile, inputJSON, 0644); err != nil {
+				return c.Status(500).JSON(fiber.Map{
+					"success": false,
+					"message": "Failed to save input data",
+					"error":   err.Error(),
+				})
+			}
+		}
+
+		// Start the video generation process asynchronously
+		go func() {
+			// Define progress callback for updating progress
+			progressCallback := func(stage string, percent int, message string) {
+				updateProgress(jobID, stage, percent, message)
+			}
+
+			// Call the actual video generation code (with checkpoint support)
+			result, err := GenerateVideo(checkpointInputFile, outputDir, progressCallback)
+
+			if err != nil {
+				log.Printf("Error resuming video: %v", err)
+				failJob(jobID, err.Error())
+			} else {
+				if result.Success {
+					videoURL := fmt.Sprintf("/output/%s/%s", outputDirName, filepath.Base(result.VideoPath))
+					completeJob(jobID, videoURL)
+				} else {
+					failJob(jobID, result.ErrorMessage)
+				}
+			}
+		}()
+
+		return c.JSON(fiber.Map{
+			"success": true,
+			"message": "Video generation resumed",
+			"jobId":   jobID,
+		})
+	})
+
 	// Get job progress endpoint
 	router.Get("/progress/:jobId", func(c *fiber.Ctx) error {
 		jobID := c.Params("jobId")

@@ -8,7 +8,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
+	"time"
 )
 
 // VideoFormData represents the structure of input data for video generation
@@ -29,11 +31,67 @@ type VideoGenerationResult struct {
 	ErrorMessage string `json:"error_message,omitempty"`
 }
 
+// VideoGenerationCheckpoint tracks which segments have been completed
+type VideoGenerationCheckpoint struct {
+	JobID             string            `json:"job_id"`
+	CompletedSegments map[string]string `json:"completed_segments"` // segment_name -> file_path
+	OpeningComplete   bool              `json:"opening_complete"`
+	MenuItemsComplete map[int]bool      `json:"menu_items_complete"`
+	ClosingComplete   bool              `json:"closing_complete"`
+	MusicGenerated    bool              `json:"music_generated"`
+	MusicPath         string            `json:"music_path,omitempty"`
+	CheckpointTime    time.Time         `json:"checkpoint_time"`
+}
+
+// saveCheckpoint saves the current generation progress
+func saveCheckpoint(checkpoint VideoGenerationCheckpoint, outputDir string) error {
+	checkpointFile := filepath.Join(outputDir, "checkpoint.json")
+	data, err := json.MarshalIndent(checkpoint, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal checkpoint data: %w", err)
+	}
+
+	return ioutil.WriteFile(checkpointFile, data, 0644)
+}
+
+// loadCheckpoint loads the previous generation progress if it exists
+func loadCheckpoint(jobID string, outputDir string) (*VideoGenerationCheckpoint, error) {
+	checkpointFile := filepath.Join(outputDir, "checkpoint.json")
+
+	// If checkpoint doesn't exist, return a new one
+	if _, err := os.Stat(checkpointFile); os.IsNotExist(err) {
+		return &VideoGenerationCheckpoint{
+			JobID:             jobID,
+			CompletedSegments: make(map[string]string),
+			MenuItemsComplete: make(map[int]bool),
+			CheckpointTime:    time.Now(),
+		}, nil
+	}
+
+	data, err := ioutil.ReadFile(checkpointFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read checkpoint file: %w", err)
+	}
+
+	var checkpoint VideoGenerationCheckpoint
+	if err := json.Unmarshal(data, &checkpoint); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal checkpoint data: %w", err)
+	}
+
+	return &checkpoint, nil
+}
+
 // GenerateVideo generates a restaurant promotional video based on the provided input data
 func GenerateVideo(inputFile string, outputDir string, progressCallback func(stage string, percent int, message string)) (*VideoGenerationResult, error) {
 	// Initialize result
 	result := &VideoGenerationResult{
 		Success: false,
+	}
+
+	// Extract jobID from outputDir for checkpoint tracking
+	jobID := filepath.Base(outputDir)
+	if strings.HasPrefix(jobID, "output_") {
+		jobID = jobID[7:] // Remove "output_" prefix
 	}
 
 	// Call progress callback if provided
@@ -49,6 +107,19 @@ func GenerateVideo(inputFile string, outputDir string, progressCallback func(sta
 	tempDir := filepath.Join(outputDir, "temp")
 	if _, err := os.Stat(tempDir); os.IsNotExist(err) {
 		os.MkdirAll(tempDir, 0755)
+	}
+
+	// Load checkpoint if exists
+	checkpoint, err := loadCheckpoint(jobID, outputDir)
+	if err != nil {
+		log.Printf("Warning: Failed to load checkpoint: %v", err)
+		// Create a new checkpoint
+		checkpoint = &VideoGenerationCheckpoint{
+			JobID:             jobID,
+			CompletedSegments: make(map[string]string),
+			MenuItemsComplete: make(map[int]bool),
+			CheckpointTime:    time.Now(),
+		}
 	}
 
 	// Read and parse input JSON
@@ -74,17 +145,17 @@ func GenerateVideo(inputFile string, outputDir string, progressCallback func(sta
 		progressCallback("segments", 20, "Generating video segments")
 	}
 
-	// Generate video segments
-	videoSegments, err := generateVideoSegments(alibabaAPI, inputData, tempDir, progressCallback)
+	// Generate video segments with checkpoint support
+	videoSegments, err := generateVideoSegments(alibabaAPI, inputData, tempDir, jobID, outputDir, progressCallback)
 	if err != nil {
 		result.Message = "Failed to generate video segments"
 		result.ErrorMessage = err.Error()
 		return result, err
 	}
 
-	// Generate background music if enabled
+	// Generate background music if enabled and not already generated
 	var musicPath string
-	if inputData.Music.Enabled {
+	if inputData.Music.Enabled && !checkpoint.MusicGenerated {
 		if progressCallback != nil {
 			progressCallback("music", 50, "Generating background music")
 		}
@@ -93,7 +164,14 @@ func GenerateVideo(inputFile string, outputDir string, progressCallback func(sta
 		if err != nil {
 			log.Printf("Warning: Failed to generate background music: %v", err)
 			// Continue without music if generation fails
+		} else {
+			checkpoint.MusicGenerated = true
+			checkpoint.MusicPath = musicPath
+			saveCheckpoint(*checkpoint, outputDir)
 		}
+	} else if checkpoint.MusicGenerated {
+		musicPath = checkpoint.MusicPath
+		log.Printf("Using existing music: %s", musicPath)
 	}
 
 	// Combine videos and add music
@@ -138,34 +216,67 @@ func readInputData(inputFile string) (*VideoInputData, error) {
 }
 
 // generateVideoSegments generates all video segments (opening, menu items, closing)
-func generateVideoSegments(api *AlibabaAPI, inputData *VideoInputData, tempDir string, progressCallback func(stage string, percent int, message string)) ([]string, error) {
+func generateVideoSegments(api *AlibabaAPI, inputData *VideoInputData, tempDir string, jobID string, outputDir string, progressCallback func(stage string, percent int, message string)) ([]string, error) {
+	// Load checkpoint if exists
+	checkpoint, err := loadCheckpoint(jobID, outputDir)
+	if err != nil {
+		log.Printf("Warning: Failed to load checkpoint: %v", err)
+		// Create a new checkpoint
+		checkpoint = &VideoGenerationCheckpoint{
+			JobID:             jobID,
+			CompletedSegments: make(map[string]string),
+			MenuItemsComplete: make(map[int]bool),
+			CheckpointTime:    time.Now(),
+		}
+	}
+
 	videoSegmentPaths := make([]string, 2+len(inputData.Menu)) // opening + menu items + closing
 	var wg sync.WaitGroup
 	var mutex sync.Mutex
 	errorsChan := make(chan error, 2+len(inputData.Menu))
 
-	// 1. Generate opening segment
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		openingVideoPath, err := generatePromptVideo(api, inputData.OpeningScene.Prompt, inputData.OpeningScene.ImageURL, "opening", tempDir)
-		if err != nil {
-			errorsChan <- fmt.Errorf("failed to generate opening video: %w", err)
-			return
-		}
+	// 1. Generate opening segment if not already completed
+	if !checkpoint.OpeningComplete {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			openingVideoPath, err := generatePromptVideo(api, inputData.OpeningScene.Prompt, inputData.OpeningScene.ImageURL, "opening", tempDir)
+			if err != nil {
+				errorsChan <- fmt.Errorf("failed to generate opening video: %w", err)
+				return
+			}
 
-		mutex.Lock()
-		videoSegmentPaths[0] = openingVideoPath
-		mutex.Unlock()
+			mutex.Lock()
+			videoSegmentPaths[0] = openingVideoPath
+			checkpoint.OpeningComplete = true
+			checkpoint.CompletedSegments["opening"] = openingVideoPath
+			saveCheckpoint(*checkpoint, outputDir) // Save progress
+			mutex.Unlock()
 
+			if progressCallback != nil {
+				progressCallback("segments", 30, "Opening scene generated")
+			}
+		}()
+	} else {
+		// Use existing video from checkpoint
+		videoSegmentPaths[0] = checkpoint.CompletedSegments["opening"]
+		log.Printf("Using existing opening segment: %s", videoSegmentPaths[0])
 		if progressCallback != nil {
-			progressCallback("segments", 30, "Opening scene generated")
+			progressCallback("segments", 30, "Using existing opening scene")
 		}
-	}()
+	}
 
 	// 2. Generate menu item segments
 	openaiApiKey := os.Getenv("OPENAI_API_KEY")
 	for i, menuItem := range inputData.Menu {
+		// Skip if this menu item is already completed
+		if completed, exists := checkpoint.MenuItemsComplete[i]; exists && completed {
+			segmentKey := fmt.Sprintf("menu_%d", i)
+			videoSegmentPaths[i+1] = checkpoint.CompletedSegments[segmentKey]
+			log.Printf("Using existing menu segment %d: %s", i, videoSegmentPaths[i+1])
+			continue
+		}
+
 		wg.Add(1)
 		i, menuItem := i, menuItem // Create local copies for the closure
 
@@ -193,7 +304,8 @@ func generateVideoSegments(api *AlibabaAPI, inputData *VideoInputData, tempDir s
 			}
 
 			// Generate video
-			menuVideoPath, err := generatePromptVideo(api, menuNarration, menuItem.PhotoURL, fmt.Sprintf("menu_%d", i), tempDir)
+			segmentKey := fmt.Sprintf("menu_%d", i)
+			menuVideoPath, err := generatePromptVideo(api, menuNarration, menuItem.PhotoURL, segmentKey, tempDir)
 			if err != nil {
 				errorsChan <- fmt.Errorf("failed to generate menu video for item %d: %w", i, err)
 				return
@@ -201,6 +313,9 @@ func generateVideoSegments(api *AlibabaAPI, inputData *VideoInputData, tempDir s
 
 			mutex.Lock()
 			videoSegmentPaths[i+1] = menuVideoPath // +1 because index 0 is for opening
+			checkpoint.MenuItemsComplete[i] = true
+			checkpoint.CompletedSegments[segmentKey] = menuVideoPath
+			saveCheckpoint(*checkpoint, outputDir) // Save progress
 			mutex.Unlock()
 
 			if progressCallback != nil {
@@ -210,24 +325,37 @@ func generateVideoSegments(api *AlibabaAPI, inputData *VideoInputData, tempDir s
 		}()
 	}
 
-	// 3. Generate closing segment
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		closingVideoPath, err := generatePromptVideo(api, inputData.ClosingScene.Prompt, inputData.ClosingScene.ImageURL, "closing", tempDir)
-		if err != nil {
-			errorsChan <- fmt.Errorf("failed to generate closing video: %w", err)
-			return
-		}
+	// 3. Generate closing segment if not already completed
+	if !checkpoint.ClosingComplete {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			closingVideoPath, err := generatePromptVideo(api, inputData.ClosingScene.Prompt,
+				inputData.ClosingScene.ImageURL, "closing", tempDir)
+			if err != nil {
+				errorsChan <- fmt.Errorf("failed to generate closing video: %w", err)
+				return
+			}
 
-		mutex.Lock()
-		videoSegmentPaths[len(videoSegmentPaths)-1] = closingVideoPath // Last index
-		mutex.Unlock()
+			mutex.Lock()
+			videoSegmentPaths[len(videoSegmentPaths)-1] = closingVideoPath // Last index
+			checkpoint.ClosingComplete = true
+			checkpoint.CompletedSegments["closing"] = closingVideoPath
+			saveCheckpoint(*checkpoint, outputDir) // Save progress
+			mutex.Unlock()
 
+			if progressCallback != nil {
+				progressCallback("segments", 70, "Closing scene generated")
+			}
+		}()
+	} else {
+		// Use existing video from checkpoint
+		videoSegmentPaths[len(videoSegmentPaths)-1] = checkpoint.CompletedSegments["closing"]
+		log.Printf("Using existing closing segment: %s", videoSegmentPaths[len(videoSegmentPaths)-1])
 		if progressCallback != nil {
-			progressCallback("segments", 70, "Closing scene generated")
+			progressCallback("segments", 70, "Using existing closing scene")
 		}
-	}()
+	}
 
 	// Wait for all video generation to complete
 	wg.Wait()
@@ -270,7 +398,7 @@ func generatePromptVideo(api *AlibabaAPI, prompt string, imageURL string, segmen
 
 	// Poll for completion
 	result, err := api.PollTaskCompletion(taskID, PollTaskCompletionParams{
-		MaxAttempts: 30,
+		MaxAttempts: 300,
 		IntervalMs:  30000, // 30 seconds
 	})
 	if err != nil {
