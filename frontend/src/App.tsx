@@ -1,24 +1,24 @@
 import {
   Box,
   Container,
+  Divider,
   Heading,
-  useToast,
-  Tabs,
-  TabList,
-  TabPanels,
-  Tab,
-  TabPanel,
-  Text,
-  VStack,
   Image,
-  Divider
+  Tab,
+  TabList,
+  TabPanel,
+  TabPanels,
+  Tabs,
+  Text,
+  useToast,
+  VStack
 } from '@chakra-ui/react'
-import { useState, useEffect, useCallback } from 'react'
-import { VideoFormData, JobData } from './types'
+import { useCallback, useEffect, useState } from 'react'
+import { generateVideo, getAllJobs, getJobProgress } from './api'
 import FormPanel from './components/FormPanel'
-import VideoPreviewPanel from './components/VideoPreviewPanel'
 import JobsPanel from './components/JobsPanel'
-import { generateVideo, getJobProgress, getAllJobs } from './api'
+import VideoPreviewPanel from './components/VideoPreviewPanel'
+import { JobData, VideoFormData } from './types'
 
 const defaultFormData: VideoFormData = {
   resto_name: "My Restaurant",
@@ -57,6 +57,8 @@ function App() {
   const [isLoadingJobs, setIsLoadingJobs] = useState(false)
   const [tabIndex, setTabIndex] = useState(0)
   const toast = useToast()
+
+  console.log(jobId);
 
   const fetchJobs = useCallback(async () => {
     try {

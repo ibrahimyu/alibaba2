@@ -4,11 +4,10 @@ import {
   CardBody,
   CardHeader,
   Heading,
-  Text,
-  Progress,
-  Center,
   Icon,
+  Progress,
   Spinner,
+  Text,
   useColorModeValue
 } from '@chakra-ui/react'
 import { FaVideo } from 'react-icons/fa'

@@ -1,20 +1,19 @@
 // ImageUploadInput.tsx
-import { 
-  Box, 
-  Button, 
-  Flex, 
-  FormControl, 
-  FormLabel, 
-  Input, 
-  InputGroup, 
-  InputRightElement, 
-  Image,
-  FormHelperText,
+import {
+  Box,
+  Button,
+  FormControl,
   FormErrorMessage,
+  FormHelperText,
+  FormLabel,
+  Image,
+  Input,
+  InputGroup,
+  InputRightElement,
   useToast
 } from '@chakra-ui/react';
 import { useRef, useState } from 'react';
-import { FaUpload, FaCheck } from 'react-icons/fa';
+import { FaCheck, FaUpload } from 'react-icons/fa';
 import { uploadImage } from '../api';
 
 interface ImageUploadInputProps {

@@ -1,39 +1,39 @@
 import {
+  Badge,
   Box,
+  Button,
   Card,
   CardBody,
   CardHeader,
+  Flex,
   Heading,
+  Icon,
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+  Spinner,
   Table,
-  Thead,
+  Tag,
+  TagLabel,
+  TagLeftIcon,
   Tbody,
-  Tr,
-  Th,
   Td,
   Text,
-  Badge,
-  Button,
-  useToast,
-  Spinner,
-  Flex,
-  Icon,
+  Th,
+  Thead,
   Tooltip,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
+  Tr,
   useDisclosure,
-  Tag,
-  TagLeftIcon,
-  TagLabel
+  useToast
 } from '@chakra-ui/react';
-import { useState, useEffect } from 'react';
-import { getAllJobs, resumeVideoGeneration } from '../api';
-import { JobData, VideoFormData } from '../types';
-import { FaCheck, FaRedo, FaExclamationTriangle } from 'react-icons/fa';
+import { useState } from 'react';
+import { FaCheck, FaExclamationTriangle, FaRedo } from 'react-icons/fa';
 import { MdRefresh, MdVisibility } from 'react-icons/md';
+import { resumeVideoGeneration } from '../api';
+import { JobData, VideoFormData } from '../types';
 
 interface JobsPanelProps {
   onJobSelected: (jobId: string, videoUrl: string | null) => void;
