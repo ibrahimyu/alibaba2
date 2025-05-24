@@ -487,7 +487,7 @@ func resizeImage(inputPath string) (string, error) {
 	}
 
 	// Resize the image while preserving aspect ratio and using a high-quality filter
-	resized := imaging.Resize(src, 1280, 720, imaging.Lanczos)
+	resized := imaging.Fit(src, 1280, 720, imaging.Lanczos)
 
 	// Generate output filename
 	outputFilename := fmt.Sprintf("resized_%s.jpg", randomString(8))
