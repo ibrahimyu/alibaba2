@@ -9,7 +9,7 @@ import json
 
 def get_response(image_url):
     client = OpenAI(
-        api_key="sk-6326ac6e33024d8fa3abeeedef503abd",
+        api_key="",
         base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
     )
     completion = client.chat.completions.create(
